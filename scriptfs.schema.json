@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "scriptfs configuration",
+  "type": "object",
+  "required": ["filesystems"],
+  "properties": {
+    "filesystems": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "source", "mountPoint"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "not": {
+              "pattern": "^([gG][lL][oO][bB][aA][lL]|[hH][oO][mM][eE][sS]|[pP][rR][iI][nN][tT][eE][rR][sS])$"
+            }
+          },
+          "source": { "type": "string" },
+          "mountPoint": { "type": "string" },
+          "readOnly": { "type": "boolean" },
+          "rules": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["match", "hide"],
+                  "properties": {
+                    "match": { "type": "string" },
+                    "hide": { "const": true }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["match", "provider"],
+                  "properties": {
+                    "match": { "type": "string" },
+                    "root": { "type": "string" },
+                    "opaque": { "type": "boolean" },
+                    "file": {
+                      "type": "object",
+                      "properties": {
+                        "mode": { "type": "integer", "minimum": 0 },
+                        "size": { "type": "integer", "minimum": 0 },
+                        "sizeMode": {
+                          "enum": ["content", "explicit", "zero", "unbounded"]
+                        },
+                        "seekable": { "type": "boolean" }
+                      }
+                    },
+                    "provider": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": ["module"],
+                          "properties": {
+                            "type": { "const": "module" },
+                            "module": { "type": "string" },
+                            "export": { "type": "string" },
+                            "options": {}
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": ["type", "path"],
+                          "properties": {
+                            "type": { "const": "file" },
+                            "path": { "type": "string" }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "required": ["type", "path"],
+                          "properties": {
+                            "type": { "const": "directory" },
+                            "path": { "type": "string" }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "container": {
+      "type": "object",
+      "properties": {
+        "image": { "type": "string" },
+        "rebuild": { "type": "boolean" },
+        "smbHost": { "type": "string" },
+        "smbPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "logLevel": {
+          "enum": ["silent", "info", "debug"]
+        }
+      }
+    }
+  }
+}

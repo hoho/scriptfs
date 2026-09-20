@@ -1,0 +1,37 @@
+FROM docker.io/library/node:22-bookworm-slim
+
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      fuse \
+      g++ \
+      libfuse-dev \
+      make \
+      pkg-config \
+      python3 \
+      samba \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo user_allow_other > /etc/fuse.conf
+
+WORKDIR /opt/scriptfs
+COPY container/package.json ./package.json
+COPY container/npm-shrinkwrap.json ./npm-shrinkwrap.json
+COPY container/patch-fuse-binding.mjs ./patch-fuse-binding.mjs
+COPY container/fuse-file-attributes.c.inc container/fuse-file-attributes.js.inc ./
+COPY container/fuse-inode-backend.h container/fuse-inode-backend.test.c ./
+RUN npm config set registry "${NPM_REGISTRY}" \
+    && npm ci --omit=dev --ignore-scripts \
+    && node patch-fuse-binding.mjs \
+    && cc -g -O1 -Wall -Wextra -Werror -Wno-unused-function \
+      -fsanitize=address,undefined fuse-inode-backend.test.c \
+      $(pkg-config --cflags --libs fuse) -o /tmp/fuse-inode-backend-test \
+    && /tmp/fuse-inode-backend-test \
+    && rm /tmp/fuse-inode-backend-test \
+    && npm rebuild --build-from-source \
+    && npm cache clean --force
+
+COPY dist/container/main.js ./main.js
+
+EXPOSE 445
+CMD ["node", "/opt/scriptfs/main.js"]

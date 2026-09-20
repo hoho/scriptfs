@@ -1,0 +1,9 @@
+dist
+coverage
+node_modules
+pnpm-lock.yaml
+# Native binding includes are source fragments, not standalone HTML or JavaScript.
+container/*.inc
+examples/mount
+examples/source
+examples/mount-readonly

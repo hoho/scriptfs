@@ -1,0 +1,1 @@
+This file is transparently read from and written to the source directory.

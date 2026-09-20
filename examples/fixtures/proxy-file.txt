@@ -1,0 +1,1 @@
+This host file is exposed as ProxiedFile.txt.

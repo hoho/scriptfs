@@ -1,0 +1,177 @@
+{
+  "$schema": "../scriptfs.schema.json",
+  "filesystems": [
+    {
+      "name": "workspace",
+      "source": "./fixtures/source",
+      "mountPoint": "./mount",
+      "readOnly": false,
+      "rules": [
+        {
+          "match": "components/*/AGENTS.md",
+          "opaque": false,
+          "provider": {
+            "module": "./provider.mjs",
+            "options": {
+              "heading": "Component instructions"
+            }
+          }
+        },
+        {
+          "match": "GeneratedCatalog/**",
+          "root": "GeneratedCatalog",
+          "opaque": true,
+          "provider": {
+            "type": "module",
+            "module": "./provider.mjs",
+            "export": "catalogProvider",
+            "options": {
+              "catalogName": "Example catalog"
+            }
+          }
+        },
+        {
+          "match": "GeneratedCatalog/ContentSized.txt",
+          "file": {
+            "mode": 420,
+            "sizeMode": "content",
+            "seekable": true
+          },
+          "provider": {
+            "type": "module",
+            "module": "./provider.mjs",
+            "export": "catalogProvider"
+          }
+        },
+        {
+          "match": "GeneratedCatalog/FixedSize.bin",
+          "file": {
+            "mode": 420,
+            "size": 16,
+            "sizeMode": "explicit",
+            "seekable": true
+          },
+          "provider": {
+            "type": "module",
+            "module": "./provider.mjs",
+            "export": "positionalProvider",
+            "options": {
+              "kind": "file",
+              "size": 16,
+              "fill": "F"
+            }
+          }
+        },
+        {
+          "match": "GeneratedCatalog/CommandSink.txt",
+          "file": {
+            "mode": 128,
+            "size": 0,
+            "sizeMode": "zero",
+            "seekable": false
+          },
+          "provider": {
+            "type": "module",
+            "module": "./provider.mjs",
+            "export": "positionalProvider",
+            "options": {
+              "kind": "sink",
+              "fill": "C"
+            }
+          }
+        },
+        {
+          "match": "GeneratedCatalog/GeneratedStream.bin",
+          "file": {
+            "mode": 292,
+            "sizeMode": "unbounded",
+            "seekable": true
+          },
+          "provider": {
+            "type": "module",
+            "module": "./provider.mjs",
+            "export": "positionalProvider",
+            "options": {
+              "kind": "stream",
+              "fill": "S"
+            }
+          }
+        },
+        {
+          "match": "GeneratedCatalog/SequentialStream.bin",
+          "opaque": true,
+          "file": {
+            "mode": 292,
+            "size": 4096,
+            "sizeMode": "explicit",
+            "seekable": false
+          },
+          "provider": {
+            "module": "./provider.mjs",
+            "export": "positionalProvider",
+            "options": { "kind": "stream", "fill": "Q" }
+          }
+        },
+        {
+          "match": "Tools/Memory/**",
+          "root": "Tools/Memory",
+          "opaque": true,
+          "provider": {
+            "module": "./provider.mjs",
+            "export": "memoryProvider"
+          }
+        },
+        {
+          "match": "*.native",
+          "provider": {
+            "module": "./provider.mjs",
+            "export": "sourceHooks"
+          }
+        },
+        {
+          "match": "ProxiedFile.txt",
+          "provider": {
+            "type": "file",
+            "path": "./fixtures/proxy-file.txt"
+          }
+        },
+        {
+          "match": "ProxiedDirectory/**",
+          "root": "ProxiedDirectory",
+          "opaque": true,
+          "provider": {
+            "type": "directory",
+            "path": "./fixtures/proxy-directory"
+          }
+        },
+        {
+          "match": "MergedDirectory/**",
+          "root": "MergedDirectory",
+          "opaque": false,
+          "provider": {
+            "type": "directory",
+            "path": "./fixtures/proxy-directory"
+          }
+        },
+        {
+          "match": "**/*.private",
+          "hide": true
+        }
+      ]
+    },
+    {
+      "name": "reference",
+      "source": "./fixtures/reference-source",
+      "mountPoint": "./mount-readonly",
+      "readOnly": true,
+      "rules": []
+    }
+  ],
+  "container": {
+    "image": "localhost/scriptfs-runtime:0.0.1",
+    "rebuild": false,
+    "smbHost": "127.0.0.1",
+    "smbPort": 14445,
+    "logLevel": "info"
+  }
+}

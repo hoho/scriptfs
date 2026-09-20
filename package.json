@@ -1,0 +1,81 @@
+{
+  "name": "scriptfs",
+  "version": "0.0.1",
+  "description": "Programmable filesystem overlays mounted through Podman, FUSE, and SMB",
+  "author": "Marat Abdullin <ma@xrlt.net>",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "scriptfs": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "container",
+    "examples/config.json",
+    "examples/provider.mjs",
+    "examples/fixtures/proxy-file.txt",
+    "examples/fixtures/proxy-directory/existing.txt",
+    "examples/fixtures/reference-source/README.txt",
+    "examples/fixtures/source/passthrough.txt",
+    "examples/fixtures/source/example.private",
+    "examples/fixtures/source/components/Button/component.txt",
+    "examples/fixtures/source/MergedDirectory",
+    "scriptfs.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/hoho/scriptfs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hoho/scriptfs/issues"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "vite",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --exclude \"test/e2e/**\"",
+    "test:e2e": "pnpm build && node scripts/run-e2e.mjs",
+    "test:e2e:rebuild": "pnpm build && node scripts/run-e2e.mjs --rebuild",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test",
+    "ci": "pnpm check && pnpm test:e2e:rebuild",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm run ci",
+    "publish:npm": "pnpm publish --access public"
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=12.4.0 <13"
+  },
+  "dependencies": {
+    "import-meta-resolve": "^4.2.0",
+    "picomatch": "^4.0.3",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@types/node": "^24.3.1",
+    "@types/picomatch": "^4.0.2",
+    "eslint": "^9.35.0",
+    "prettier": "^3.6.2",
+    "tsdown": "^0.15.4",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.42.0",
+    "vite": "^7.1.4",
+    "vitest": "^4.1.11"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
