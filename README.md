@@ -1067,6 +1067,24 @@ Changes made directly on the host, including atomic proxy-target replacement,
 are visible after the Podman VM and SMB client's metadata caches invalidate;
 they are not guaranteed to appear instantaneously.
 
+### macOS 15 AppleHV hard-link limitation
+
+On macOS 15.7.9, AppleHV/virtiofs has been observed to violate hard-link
+semantics for directories shared with the Podman machine. Replacing one link
+can make a surviving link and an already-open descriptor return the
+replacement's contents even though the paths still report distinct inode
+numbers. The same standalone filesystem probe behaves correctly on macOS
+26.6.2 and 27.0 with the same Podman server, VM kernel, and architecture,
+confirming that the failure occurs below ScriptFS.
+
+This can break source or proxy files with multiple hard links and causes the
+hard-link end-to-end regressions to fail. Running
+`pnpm test:e2e:rebuild` reproduces the problem with the existing test suite,
+including the surviving-link and open-handle replacement cases. Do not ignore
+those failures or rely on affected mounts for data-preserving hard-link
+operations. Upgrade macOS, run the source from storage local to the Podman VM,
+or use another machine provider whose hard-link behavior has been verified.
+
 ## Host requirements
 
 - Podman with a running Linux machine and `/dev/fuse` support.
