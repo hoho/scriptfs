@@ -104,9 +104,13 @@ it("resolves installed providers with import-only exports relative to the config
     }),
   );
   const config = await loadConfig(configPath);
-  expect(config.filesystems[0]?.rules?.[0]).toMatchObject({
-    provider: { module: await realpath(path.join(provider, "provider.mjs")) },
-  });
+  const rule = config.filesystems[0]?.rules?.[0];
+  // Windows realpath implementations can preserve or expand short names.
+  expect(
+    rule && "provider" in rule && "module" in rule.provider
+      ? await realpath(rule.provider.module)
+      : undefined,
+  ).toBe(await realpath(path.join(provider, "provider.mjs")));
 });
 
 it("decodes file URLs containing escaped spaces", async () => {

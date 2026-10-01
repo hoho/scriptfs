@@ -22,7 +22,7 @@ COPY container/patch-fuse-binding.mjs ./patch-fuse-binding.mjs
 COPY container/fuse-file-attributes.c.inc container/fuse-file-attributes.js.inc ./
 COPY container/fuse-inode-backend.h container/fuse-inode-backend.test.c ./
 RUN npm config set registry "${NPM_REGISTRY}" \
-    && npm ci --omit=dev --ignore-scripts \
+    && npm ci --omit=dev --ignore-scripts --no-fund \
     && node patch-fuse-binding.mjs \
     && cc -g -O1 -Wall -Wextra -Werror -Wno-unused-function \
       fuse-inode-backend.test.c \
@@ -36,7 +36,7 @@ RUN npm config set registry "${NPM_REGISTRY}" \
       && /tmp/fuse-inode-backend-sanitized-test \
       && rm /tmp/fuse-inode-backend-sanitized-test; \
     fi \
-    && npm rebuild --build-from-source \
+    && npm rebuild --build-from-source --no-fund \
     && npm cache clean --force
 
 COPY dist ./dist
