@@ -79,12 +79,12 @@ jobs:
           }
           $installation = Start-Process msiexec.exe -Wait -PassThru -ArgumentList "/i `"$installer`" /qn /norestart"
           if ($installation.ExitCode -ne 0) { throw "Podman installation failed: $($installation.ExitCode)" }
-          $env:PATH = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+          $env:PATH = $env:PATH + ';' + [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
           $podmanDirectory = Split-Path (Get-Command podman -ErrorAction Stop).Source
           Add-Content -Path $env:GITHUB_PATH -Value $podmanDirectory
           podman machine init
           if ($LASTEXITCODE -ne 0) { throw 'Podman machine initialization failed.' }
-          podman machine start --update-connection
+          podman machine start
           if ($LASTEXITCODE -ne 0) { throw 'Podman machine startup failed.' }
           podman machine ssh 'test -c /dev/fuse'
           if ($LASTEXITCODE -ne 0) { throw 'The Podman machine has no /dev/fuse device.' }
