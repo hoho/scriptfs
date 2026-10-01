@@ -31,6 +31,10 @@ jobs:
       - name: Install pnpm
         run: |
           npm install --prefix "$RUNNER_TEMP/scriptfs-pnpm" --no-audit --no-fund pnpm@12.4.0
+          # pnpm's installer changes Windows bin targets to .exe; refresh npm's launchers.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            npm rebuild --prefix "$RUNNER_TEMP/scriptfs-pnpm" --ignore-scripts --no-audit --no-fund pnpm
+          fi
           echo "$RUNNER_TEMP/scriptfs-pnpm/node_modules/.bin" >> "$GITHUB_PATH"
       - uses: actions/setup-node@v7
         with:
@@ -102,7 +106,6 @@ jobs:
 
       - name: Windows FUSE and SMB integration
         if: runner.os == 'Windows'
-        shell: pwsh
         run: pnpm test:e2e
 
       - name: Stop Windows Podman machine
