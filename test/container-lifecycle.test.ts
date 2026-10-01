@@ -71,12 +71,15 @@ it("waits for a child process to terminate", async () => {
   expect(child.exitCode !== null || child.signalCode !== null).toBe(true);
 });
 
-it("forcefully terminates a child that ignores the graceful signal", async () => {
-  const child = spawn(process.execPath, [
-    "-e",
-    "process.on('SIGTERM',()=>{});process.stdout.write('ready');setInterval(()=>{},1000)",
-  ]);
-  await once(child.stdout, "data");
-  await terminateChild(child, "SIGTERM", 50);
-  expect(child.signalCode).toBe("SIGKILL");
-});
+it.skipIf(process.platform === "win32")(
+  "forcefully terminates a child that ignores the graceful signal",
+  async () => {
+    const child = spawn(process.execPath, [
+      "-e",
+      "process.on('SIGTERM',()=>{});process.stdout.write('ready');setInterval(()=>{},1000)",
+    ]);
+    await once(child.stdout, "data");
+    await terminateChild(child, "SIGTERM", 50);
+    expect(child.signalCode).toBe("SIGKILL");
+  },
+);

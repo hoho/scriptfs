@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest]
+        os: [ubuntu-24.04, macos-latest, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     defaults:
@@ -57,7 +57,7 @@ jobs:
         run: |
           sudo podman build \
             --build-arg "NPM_REGISTRY=$(npm config get registry)" \
-            --tag localhost/scriptfs-runtime:0.0.1 \
+            --tag localhost/scriptfs-runtime:0.0.2 \
             --file container/Containerfile .
 
       - name: Linux FUSE and SMB integration
@@ -66,3 +66,49 @@ jobs:
           sudo env "PATH=$PATH" "CI=true" \
             "NPM_CONFIG_USERCONFIG=$(npm config get userconfig)" \
             pnpm test:e2e
+
+      - name: Install Windows integration prerequisites
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'podman.msi'
+          Invoke-WebRequest -Uri 'https://github.com/podman-container-tools/podman/releases/download/v5.8.3/podman-installer-windows-amd64.msi' -OutFile $installer
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne '2c5cffb2f023ae122d52d7f4b30bb677adb933fb7aa7ad708d3d544f8d6fe13a') {
+            throw 'Podman installer checksum did not match.'
+          }
+          $installation = Start-Process msiexec.exe -Wait -PassThru -ArgumentList "/i `"$installer`" /qn /norestart"
+          if ($installation.ExitCode -ne 0) { throw "Podman installation failed: $($installation.ExitCode)" }
+          $env:PATH = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+          $podmanDirectory = Split-Path (Get-Command podman -ErrorAction Stop).Source
+          Add-Content -Path $env:GITHUB_PATH -Value $podmanDirectory
+          podman machine init
+          if ($LASTEXITCODE -ne 0) { throw 'Podman machine initialization failed.' }
+          podman machine start --update-connection
+          if ($LASTEXITCODE -ne 0) { throw 'Podman machine startup failed.' }
+          podman machine ssh 'test -c /dev/fuse'
+          if ($LASTEXITCODE -ne 0) { throw 'The Podman machine has no /dev/fuse device.' }
+          node .\dist\cli.js --check
+          if ($LASTEXITCODE -ne 0) { throw 'ScriptFS Podman preflight failed.' }
+
+      - name: Build fresh Windows runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $registry = npm config get registry
+          if ($LASTEXITCODE -ne 0) { throw 'Could not determine the npm registry.' }
+          podman build --build-arg "NPM_REGISTRY=$registry" --build-arg RUN_NATIVE_SANITIZERS=false --tag localhost/scriptfs-runtime:0.0.2 --file .\container\Containerfile .
+          if ($LASTEXITCODE -ne 0) { throw 'Windows runtime image build failed.' }
+
+      - name: Windows FUSE and SMB integration
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pnpm test:e2e
+
+      - name: Stop Windows Podman machine
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Get-Command podman -ErrorAction SilentlyContinue) {
+            podman machine stop
+            if ($LASTEXITCODE -ne 0) { throw 'Podman machine cleanup failed.' }
+          }

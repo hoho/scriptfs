@@ -473,6 +473,52 @@ it("permits FUSE through per-container AppArmor settings without privileged mode
   expect(createArguments).not.toContain("--privileged");
 });
 
+it.each(["linux", "win32"])(
+  "uses temporary SMB credentials only for Windows: %s",
+  async (platform) => {
+    vi.stubGlobal(
+      "process",
+      new Proxy(process, {
+        get: (target, key, receiver): unknown =>
+          key === "platform" ? platform : Reflect.get(target, key, receiver),
+      }),
+    );
+    try {
+      const session = await start();
+      const credentialsMount = createArguments.find((argument) =>
+        argument.endsWith(":/scriptfs/smb-credentials.json:ro"),
+      );
+      if (platform === "win32") {
+        expect(createArguments).toContain(
+          "SCRIPTFS_SMB_CREDENTIALS=/scriptfs/smb-credentials.json",
+        );
+        expect(credentialsMount).toBeDefined();
+        const credentialsPath = credentialsMount?.slice(
+          0,
+          -":/scriptfs/smb-credentials.json:ro".length,
+        );
+        if (!credentialsPath) throw new Error("Missing SMB credentials path");
+        const credentials = JSON.parse(
+          await readFile(credentialsPath, "utf8"),
+        ) as { username: string; password: string };
+        expect(credentials.username).toBe("scriptfs");
+        expect(credentials.password).toMatch(/^[a-f0-9]{64}$/);
+        expect(createArguments.join(" ")).not.toContain(credentials.password);
+        expect(vi.mocked(mountShare).mock.calls[0]?.[4]).toBe(credentialsPath);
+        await session.stop();
+        await expect(stat(credentialsPath)).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+      } else {
+        expect(credentialsMount).toBeUndefined();
+        expect(vi.mocked(mountShare).mock.calls[0]?.[4]).toBeUndefined();
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
 function abortError(signal: AbortSignal): Error {
   const reason: unknown = signal.reason;
   return reason instanceof Error
@@ -540,6 +586,8 @@ it.each(["darwin", "linux", "win32"])(
         expect.arrayContaining([
           "--build-arg",
           "NPM_REGISTRY=https://registry.example.invalid/",
+          "--build-arg",
+          `RUN_NATIVE_SANITIZERS=${platform === "win32" ? "false" : "true"}`,
         ]),
         { output: "inherit", signal: controller.signal, timeoutMs: 600_000 },
       );
@@ -812,6 +860,7 @@ it("resolves programmatic host paths before validation and Podman mounts without
     14445,
     "test",
     path.join(root, "mount"),
+    process.platform === "win32" ? expect.any(String) : undefined,
   );
   expect(session.mounts.get("test")).toBe(path.join(root, "mount"));
 });

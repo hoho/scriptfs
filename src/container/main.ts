@@ -6,6 +6,11 @@ import type { ScriptFsConfig } from "../types.js";
 import { createFuseMount } from "./fuse-adapter.js";
 import { loadFuse, type FuseInstance } from "./fuse-binding.js";
 import { terminateChild, unmountFuse, waitForTcpServer } from "./lifecycle.js";
+import {
+  configureSmbCredentials,
+  createSmbConfig,
+  type SmbCredentials,
+} from "./samba.js";
 
 // FUSE has already applied the caller's umask to creation modes.
 process.umask(0);
@@ -36,7 +41,16 @@ for (const filesystemConfig of config.filesystems) {
 }
 
 const smbConfigPath = "/tmp/scriptfs-smb.conf";
-await writeFile(smbConfigPath, createSmbConfig(config), { mode: 0o644 });
+const credentialsPath = process.env.SCRIPTFS_SMB_CREDENTIALS;
+await writeFile(smbConfigPath, createSmbConfig(config, !!credentialsPath), {
+  mode: 0o644,
+});
+if (credentialsPath) {
+  const credentials = JSON.parse(
+    await readFile(credentialsPath, "utf8"),
+  ) as SmbCredentials;
+  await configureSmbCredentials(credentials, smbConfigPath);
+}
 const samba = spawn(
   "smbd",
   ["--foreground", "--no-process-group", "--configfile", smbConfigPath],
@@ -102,43 +116,4 @@ function mountFuse(mount: FuseInstance): Promise<void> {
   return new Promise((resolve, reject) => {
     mount.mount((error) => (error ? reject(error) : resolve()));
   });
-}
-
-function createSmbConfig(runtimeConfig: ScriptFsConfig): string {
-  const shares = runtimeConfig.filesystems
-    .map(
-      (filesystem) => `
-[${filesystem.name}]
-path = ${filesystem.mountPoint}
-browseable = yes
-guest ok = yes
-read only = ${filesystem.readOnly ? "yes" : "no"}
-force user = root
-create mask = 0666
-force create mode = 0000
-veto files = /._*/.DS_Store/
-delete veto files = yes
-`,
-    )
-    .join("\n");
-
-  return `[global]
-server role = standalone server
-security = user
-map to guest = Bad User
-guest account = nobody
-server min protocol = SMB2
-smb ports = 445
-load printers = no
-printing = bsd
-disable spoolss = yes
-stat cache = no
-getwd cache = no
-smb2 leases = no
-oplocks = no
-level2 oplocks = no
-kernel change notify = no
-change notify = no
-directory name cache size = 0
-${shares}`;
 }

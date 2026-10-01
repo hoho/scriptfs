@@ -1,6 +1,7 @@
 FROM docker.io/library/node:22-bookworm-slim
 
 ARG NPM_REGISTRY=https://registry.npmjs.org/
+ARG RUN_NATIVE_SANITIZERS=true
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -24,14 +25,21 @@ RUN npm config set registry "${NPM_REGISTRY}" \
     && npm ci --omit=dev --ignore-scripts \
     && node patch-fuse-binding.mjs \
     && cc -g -O1 -Wall -Wextra -Werror -Wno-unused-function \
-      -fsanitize=address,undefined fuse-inode-backend.test.c \
+      fuse-inode-backend.test.c \
       $(pkg-config --cflags --libs fuse) -o /tmp/fuse-inode-backend-test \
     && /tmp/fuse-inode-backend-test \
     && rm /tmp/fuse-inode-backend-test \
+    && if [ "${RUN_NATIVE_SANITIZERS}" = "true" ]; then \
+      cc -g -O1 -Wall -Wextra -Werror -Wno-unused-function \
+        -fsanitize=address,undefined fuse-inode-backend.test.c \
+        $(pkg-config --cflags --libs fuse) -o /tmp/fuse-inode-backend-sanitized-test \
+      && /tmp/fuse-inode-backend-sanitized-test \
+      && rm /tmp/fuse-inode-backend-sanitized-test; \
+    fi \
     && npm rebuild --build-from-source \
     && npm cache clean --force
 
-COPY dist/container/main.js ./main.js
+COPY dist ./dist
 
 EXPOSE 445
-CMD ["node", "/opt/scriptfs/main.js"]
+CMD ["node", "/opt/scriptfs/dist/container/main.js"]

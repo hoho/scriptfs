@@ -12,9 +12,10 @@ export async function mountShare(
   port: number,
   share: string,
   mountPoint: string,
+  credentialsPath?: string,
 ): Promise<MountedShare> {
   if (process.platform === "win32") {
-    return mountWindows(host, port, share, mountPoint);
+    return mountWindows(host, port, share, mountPoint, credentialsPath);
   }
 
   await mkdir(mountPoint, { recursive: true });
@@ -57,27 +58,45 @@ async function mountWindows(
   port: number,
   share: string,
   mountPoint: string,
+  credentialsPath: string | undefined,
 ): Promise<MountedShare> {
   if (!/^[a-zA-Z]:$/.test(mountPoint)) {
     throw new Error(
       `Windows mount points must currently be drive letters such as "S:", received ${mountPoint}`,
     );
   }
-  if (port !== 445) {
-    throw new Error(
-      "Windows SMB clients require scriptfs.container.smbPort to be 445",
-    );
-  }
-
   const drive = mountPoint.toUpperCase();
   const remote = `\\\\${host}\\${share}`;
-  await runCommand("net", [
-    "use",
-    drive,
-    remote,
-    "",
-    "/user:guest",
-    "/persistent:no",
+  const quote = (value: string): string => `'${value.replaceAll("'", "''")}'`;
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "$mapping = @{",
+    `LocalPath = ${quote(drive)}`,
+    `RemotePath = ${quote(remote)}`,
+    "Persistent = $false",
+    "}",
+    ...(credentialsPath
+      ? [
+          `$credentials = Get-Content -LiteralPath ${quote(credentialsPath)} -Raw | ConvertFrom-Json`,
+          "$mapping.UserName = $credentials.username",
+          "$mapping.Password = $credentials.password",
+        ]
+      : ["$mapping.UserName = 'guest'", "$mapping.Password = ''"]),
+    ...(port === 445
+      ? []
+      : [
+          "if (-not (Get-Command New-SmbMapping).Parameters.ContainsKey('TcpPort')) {",
+          "throw 'Alternative SMB ports require Windows 11 24H2 or Windows Server 2025 or later. Older clients require smbPort: 445 on a dedicated SMB host.'",
+          "}",
+          `$mapping.TcpPort = ${String(port)}`,
+        ]),
+    "New-SmbMapping @mapping | Out-Null",
+  ].join("\n");
+  await runCommand("powershell.exe", [
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    script,
   ]);
   return {
     mountPoint: drive,

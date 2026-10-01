@@ -40,7 +40,32 @@ it.skipIf(process.platform === "win32")(
   },
 );
 
-async function runCli(outcome: string): Promise<{
+it("checks Podman without loading a mount configuration or starting the runtime", async () => {
+  const result = await runCli("stopped", "--check");
+  expect(result.code).toBe(0);
+  expect(result.timedOut).toBe(false);
+  expect(result.stdout).toContain("Linux runtime is ready");
+  expect(result.stdout).not.toContain("configuration loaded");
+  expect(result.stdout).not.toContain("runtime started");
+  expect(result.stderr).toBe("");
+});
+
+it.each(["config", "--check"])(
+  "reports missing Podman before creating mount resources with %s",
+  async (argument) => {
+    const result = await runCli("missing-podman", argument);
+    expect(result.code).toBe(1);
+    expect(result.timedOut).toBe(false);
+    expect(result.stderr).toContain("Podman executable was not found on PATH");
+    expect(result.stdout).not.toContain("runtime started");
+    expect(result.stdout).not.toContain("cleanup completed");
+  },
+);
+
+async function runCli(
+  outcome: string,
+  argument = "config",
+): Promise<{
   code: number | null;
   stdout: string;
   stderr: string;
@@ -65,13 +90,23 @@ async function runCli(outcome: string): Promise<{
   await writeFile(path.join(root, "package.json"), '{"type":"module"}');
   await writeFile(
     path.join(root, "config.js"),
-    "export async function loadConfig() { return {}; }\n",
+    'export async function loadConfig() { console.log("configuration loaded"); return {}; }\n',
+  );
+  await writeFile(
+    path.join(root, "runtime", "podman-check.js"),
+    `
+export async function checkPodman() {
+  if (${JSON.stringify(outcome)} === "missing-podman")
+    throw new Error("Podman executable was not found on PATH");
+}
+`,
   );
   await writeFile(
     path.join(root, "runtime", "podman.js"),
     `
 export class ScriptFsStartupError extends Error {}
 export async function startScriptFs() {
+  console.log("runtime started");
   return {
     mounts: new Map(),
     wait() {
@@ -85,7 +120,7 @@ export async function startScriptFs() {
 }
 `,
   );
-  const child = spawn(process.execPath, [path.join(root, "cli.js"), "config"], {
+  const child = spawn(process.execPath, [path.join(root, "cli.js"), argument], {
     stdio: ["ignore", "pipe", "pipe"],
   });
   const exited = once(child, "close");

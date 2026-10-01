@@ -11,6 +11,23 @@ scriptfs /path/to/config.json
 The CLI stays in the foreground and unmounts the SMB shares and stops the
 container on `Ctrl+C`.
 
+The installed CLI automatically checks that Podman is on `PATH` and that its
+Linux runtime is reachable before building images or creating mount resources.
+If a prerequisite is missing, it reports platform-specific installation or
+machine startup instructions and preserves the underlying Podman diagnostic.
+On Windows and macOS it explicitly verifies that the selected Podman VM exists
+and is running; a stopped VM cannot pass merely because another backend is
+reachable. On native Linux, it does not require a Podman VM. These checks do not
+install software or change Podman machines or connections.
+The selected connection honors `CONTAINER_CONNECTION` and `CONTAINER_HOST`
+environment overrides, with `CONTAINER_CONNECTION` taking precedence.
+
+To run just the Podman check without a configuration file:
+
+```sh
+scriptfs --check
+```
+
 ## Contents
 
 - [Motivation](#motivation)
@@ -213,8 +230,9 @@ node dist/cli.js examples/config.json
 ```
 
 The example reserves host SMB port `14445`; change or remove `smbPort` if that
-port is unavailable. On Windows, use drive letters for `mountPoint` and set
-`smbPort` to `445`.
+port is unavailable. On Windows 11 24H2 or Windows Server 2025 and later, use
+drive letters for `mountPoint` and omit `smbPort` to avoid conflicts with the
+Windows SMB server.
 
 The providers are deliberately local and require no service credentials. Generated
 data is **in memory and resets when the session stops**. Source and proxy writes
@@ -423,14 +441,17 @@ individual path.
 
 | Key        | Required | Default                            | Meaning                                                          |
 | ---------- | -------- | ---------------------------------- | ---------------------------------------------------------------- |
-| `image`    | No       | `localhost/scriptfs-runtime:0.0.1` | Podman runtime image to build or reuse.                          |
+| `image`    | No       | `localhost/scriptfs-runtime:0.0.2` | Podman runtime image to build or reuse.                          |
 | `rebuild`  | No       | `false`                            | Rebuild `image` before starting even if it already exists.       |
 | `smbHost`  | No       | `127.0.0.1`                        | SMB hostname or address used by the host mount adapter.          |
 | `smbPort`  | No       | Podman-assigned loopback port      | Fixed host port mapped to the container's SMB port.              |
 | `logLevel` | No       | `info`                             | `silent`, `info`, or `debug`; `debug` also logs FUSE operations. |
 
-Windows currently requires `smbPort: 445`; macOS and Linux can use a fixed
-non-privileged port or omit the key.
+Windows 11 24H2 and Windows Server 2025 and later support alternative SMB TCP
+ports. Prefer omitting `smbPort` on these systems: port `445` can conflict with
+the Windows SMB server and requires privileged port publishing in rootless
+Podman. Older Windows clients require `smbPort: 445` and a dedicated SMB host
+address without a conflicting SMB listener.
 
 ### Built-in file and directory proxies
 
@@ -1090,10 +1111,15 @@ or use another machine provider whose hard-link behavior has been verified.
 - Podman with a running Linux machine and `/dev/fuse` support.
 - macOS uses `mount_smbfs`.
 - Linux uses `mount -t cifs`.
-- Windows support is isolated behind the host mount adapter. The current
-  adapter accepts drive-letter mount points such as `S:` and requires SMB port
-  `445`; broader Windows directory-mount support can be added without changing
-  provider modules or overlay semantics.
+- Windows accepts drive-letter mount points such as `S:`. Windows 11 24H2 and
+  Windows Server 2025 and later can mount a Podman-assigned SMB TCP port through
+  `New-SmbMapping`; run ScriptFS from an elevated terminal when using these
+  alternative ports. Older clients require port `445` on a dedicated SMB host.
+- Windows mounts use a generated, session-only Samba account rather than
+  insecure guest authentication. Its credentials are stored in the private
+  runtime directory, mounted read-only into the container, and removed during
+  session cleanup. Passwords are not passed in process arguments or stored in
+  user configuration. No Windows SMB security policies are changed.
 
 Runtime containers receive `/dev/fuse` and `SYS_ADMIN`, with SELinux label
 separation and AppArmor confinement disabled for that container only
@@ -1106,6 +1132,10 @@ launcher.
 
 Runtime image builds use the effective local npm registry configuration on
 all supported hosts, including Windows installations with an `npm.cmd` launcher.
+Native backend unit tests always run during image builds. The additional
+AddressSanitizer/UndefinedBehaviorSanitizer probe remains enabled by default
+(`RUN_NATIVE_SANITIZERS=true`), but Windows-hosted builds disable that probe
+because it can crash under WSL. Linux builds and CI retain sanitizer coverage.
 
 SMB clients may apply host-specific ownership and mode semantics. In
 particular, macOS `mount_smbfs` does not reliably forward `chmod` and `chown`
@@ -1131,6 +1161,8 @@ FUSE dependency.
 Native inode handling lives in `container/fuse-inode-backend.h`, with its
 corresponding `.test.c` suite. `patch-fuse-binding.mjs` prepares the pinned
 binding; `.inc` marks source fragments rather than standalone compilation units.
+The native tests capture and assert expected failure-injection diagnostics;
+production metadata errors remain logged.
 
 Test filenames identify their scope: `overlay-filesystem`, `filesystem-io`,
 `podman-runtime`, and `fuse-binding-patch` cover the corresponding components.
@@ -1174,6 +1206,11 @@ The alias matrices deliberately vary lookup timing and pending writes. A quiet
 audit or passing suite is evidence for these cases, not proof that arbitrary
 provider callbacks are race-free.
 
+Use `make bump-version VERSION=x.y.z` to update the npm package version and all
+tracked runtime image tags together. Publishing validates that every runtime
+tag still matches `package.json`; run `make check-version` to perform the same
+check directly.
+
 The Makefile provides equivalent convenience targets:
 
 ```sh
@@ -1203,7 +1240,8 @@ resetting or deleting any VM; `make check-deps` only checks readiness.
 
 `.github/workflows/ci.yml` runs on pushes, pull requests, and manual dispatch.
 It uses Node.js 22 and pnpm 12.4.0 as a fixed CI baseline, caches the pnpm store,
-installs with the frozen lockfile, and runs `pnpm check` on Ubuntu 24.04 and macOS.
+installs with the frozen lockfile, and runs `pnpm check` on Ubuntu 24.04, macOS,
+and Windows Server 2025. Formatting accepts native checkout line endings.
 
 Ubuntu also installs Podman and CIFS support, builds a fresh runtime image,
 and runs the real FUSE/SMB end-to-end suite as root so the Linux host can mount
@@ -1212,6 +1250,19 @@ their startup timeout. Integration uses the same per-container AppArmor settings
 as ordinary startup, without a CI-only Podman policy override. Registry
 configuration is preserved for both dependency installation and runtime image
 builds.
+
+Windows installs the checksum-verified Podman 5.8.3 MSI, initializes a rootless
+WSL machine, verifies `/dev/fuse` and the CLI preflight, and builds a
+fresh runtime image before its integration tests. The Windows suite exercises
+authenticated writable and read-only SMB drive mappings on dynamic TCP ports,
+generated provider content, hide rules, file/directory I/O, and shutdown cleanup.
+The workflow stops its Podman machine even when a step fails.
+
+Three POSIX-native filesystem unit suites run on Linux and macOS rather than
+directly against Windows NTFS; those components execute inside Linux in normal
+ScriptFS usage. Windows runs the host/runtime/configuration unit suites and
+tests the Linux container through the real Windows mount. `pnpm test:e2e` selects
+the appropriate integration suite for the host.
 
 Hosted macOS runs portable checks only: its nested-virtualization restriction
 precludes the Podman machine required by the end-to-end suite. Run

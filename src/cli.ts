@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { loadConfig } from "./config.js";
 import { ScriptFsStartupError, startScriptFs } from "./runtime/podman.js";
+import { checkPodman } from "./runtime/podman-check.js";
 import type { ScriptFsSession } from "./types.js";
 
 const configPath = process.argv[2];
@@ -9,7 +10,7 @@ if (
   process.argv.includes("--help") ||
   process.argv.includes("-h")
 ) {
-  console.log("Usage: scriptfs /path/to/config.json");
+  console.log("Usage: scriptfs /path/to/config.json\n       scriptfs --check");
   process.exit(configPath ? 0 : 1);
 }
 
@@ -21,16 +22,22 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 let session: ScriptFsSession | undefined;
 let failure: unknown;
 try {
-  const config = await loadConfig(configPath);
-  session = await startScriptFs(config, {
-    signal: abortController.signal,
-  });
-  for (const [name, mountPoint] of session.mounts) {
-    console.log(`${name}: ${mountPoint}`);
-  }
-  console.log("scriptfs is running; press Ctrl+C to stop");
+  if (configPath === "--check") {
+    await checkPodman(abortController.signal);
+    console.log("Podman is installed and its Linux runtime is ready.");
+  } else {
+    const config = await loadConfig(configPath);
+    await checkPodman(abortController.signal);
+    session = await startScriptFs(config, {
+      signal: abortController.signal,
+    });
+    for (const [name, mountPoint] of session.mounts) {
+      console.log(`${name}: ${mountPoint}`);
+    }
+    console.log("scriptfs is running; press Ctrl+C to stop");
 
-  await waitForSession(session, abortController.signal);
+    await waitForSession(session, abortController.signal);
+  }
 } catch (error) {
   failure = error;
   if (error instanceof ScriptFsStartupError) {

@@ -186,7 +186,7 @@ it("keeps the exhaustive example configuration valid", async () => {
     true,
   ]);
   expect(config.container).toEqual({
-    image: "localhost/scriptfs-runtime:0.0.1",
+    image: "localhost/scriptfs-runtime:0.0.2",
     rebuild: false,
     smbHost: "127.0.0.1",
     smbPort: 14_445,

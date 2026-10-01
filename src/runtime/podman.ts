@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import {
   access,
   mkdtemp,
@@ -30,7 +30,7 @@ import {
   validateProxyTargets,
 } from "../config.js";
 
-const DEFAULT_IMAGE = "localhost/scriptfs-runtime:0.0.1";
+const DEFAULT_IMAGE = "localhost/scriptfs-runtime:0.0.2";
 const CLEANUP_RETRY_MS = 1_000;
 const COMMAND_TIMEOUT_MS = 60_000;
 
@@ -204,6 +204,20 @@ export async function startScriptFs(
       runtimeConfigPath,
       JSON.stringify(prepared.config, null, 2),
     );
+    const smbCredentialsPath =
+      process.platform === "win32"
+        ? path.join(temporaryDirectory, "smb-credentials.json")
+        : undefined;
+    if (smbCredentialsPath) {
+      await writeFile(
+        smbCredentialsPath,
+        JSON.stringify({
+          username: "scriptfs",
+          password: randomBytes(32).toString("hex"),
+        }),
+        { mode: 0o600 },
+      );
+    }
 
     const publish =
       config.container?.smbPort === undefined
@@ -226,6 +240,14 @@ export async function startScriptFs(
       publish,
       "--volume",
       `${runtimeConfigPath}:/scriptfs/config.json:ro`,
+      ...(smbCredentialsPath
+        ? [
+            "--env",
+            "SCRIPTFS_SMB_CREDENTIALS=/scriptfs/smb-credentials.json",
+            "--volume",
+            `${smbCredentialsPath}:/scriptfs/smb-credentials.json:ro`,
+          ]
+        : []),
       ...prepared.mountArguments,
       image,
     ];
@@ -253,7 +275,13 @@ export async function startScriptFs(
     for (const filesystem of config.filesystems) {
       options.signal?.throwIfAborted();
       mounts.push(
-        await mountShare(host, port, filesystem.name, filesystem.mountPoint),
+        await mountShare(
+          host,
+          port,
+          filesystem.name,
+          filesystem.mountPoint,
+          smbCredentialsPath,
+        ),
       );
       options.signal?.throwIfAborted();
     }
@@ -474,6 +502,8 @@ async function buildImage(
       "build",
       "--build-arg",
       `NPM_REGISTRY=${registry}`,
+      "--build-arg",
+      `RUN_NATIVE_SANITIZERS=${process.platform === "win32" ? "false" : "true"}`,
       "--tag",
       image,
       "--file",

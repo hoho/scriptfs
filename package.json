@@ -1,6 +1,6 @@
 {
   "name": "scriptfs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Programmable filesystem overlays mounted through Podman, FUSE, and SMB",
   "author": "Marat Abdullin <ma@xrlt.net>",
   "license": "MIT",
@@ -49,8 +49,9 @@
     "test:e2e:rebuild": "pnpm build && node scripts/run-e2e.mjs --rebuild",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test",
     "ci": "pnpm check && pnpm test:e2e:rebuild",
+    "version:check": "node scripts/bump-version.mjs --check",
     "prepack": "pnpm build",
-    "prepublishOnly": "pnpm run ci",
+    "prepublishOnly": "pnpm run version:check && pnpm run ci",
     "publish:npm": "pnpm publish --access public"
   },
   "engines": {

@@ -9,7 +9,7 @@ PUBLISH_ARGS ?= --access public
 .PHONY: help check-deps install-deps start-podman pnpm-install install \
 	format format-check lint typecheck build test check \
 	test-e2e test-e2e-rebuild example \
-	pack-dry-run publish-dry-run publish
+	bump-version check-version pack-dry-run publish-dry-run publish
 
 help:
 	@printf '%s\n' \
@@ -32,6 +32,8 @@ help:
 		'  make example           Build and run examples/config.json' \
 		'' \
 		'Publishing:' \
+		'  make bump-version VERSION=x.y.z  Update package and runtime image versions' \
+		'  make check-version     Verify package and runtime image versions match' \
 		'  make pack-dry-run      Preview the exact npm package contents' \
 		'  make publish-dry-run   Build, validate, and preview the npm package' \
 		'  make publish           Build, validate, and publish to public npm'
@@ -113,11 +115,18 @@ test-e2e-rebuild:
 example: build
 	node dist/cli.js examples/config.json
 
+bump-version:
+	@test -n "$(VERSION)" || { echo 'VERSION is required; use make bump-version VERSION=x.y.z.' >&2; exit 1; }
+	node scripts/bump-version.mjs "$(VERSION)"
+
+check-version:
+	node scripts/bump-version.mjs --check
+
 pack-dry-run:
 	$(PNPM) pack --dry-run
 
-publish-dry-run:
+publish-dry-run: check-version
 	$(PNPM) publish --dry-run --no-git-checks $(PUBLISH_ARGS)
 
-publish:
+publish: check-version
 	$(PNPM) publish --no-git-checks $(PUBLISH_ARGS)

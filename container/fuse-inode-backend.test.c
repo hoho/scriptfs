@@ -100,6 +100,29 @@ static int truncate_path(const char *path, off_t size) {
   return 0;
 }
 
+static int close_with_expected_metadata_error(struct sfs_mount *mount,
+    struct sfs_node *node, struct fuse_file_info *info, int metadata_error) {
+  FILE *diagnostic = tmpfile();
+  assert(diagnostic);
+  int saved_stderr = dup(STDERR_FILENO);
+  assert(saved_stderr >= 0);
+  assert(!fflush(stderr));
+  assert(dup2(fileno(diagnostic), STDERR_FILENO) >= 0);
+  int result = sfs_close(mount, node, info, false);
+  assert(!fflush(stderr));
+  assert(dup2(saved_stderr, STDERR_FILENO) >= 0);
+  assert(!close(saved_stderr));
+  rewind(diagnostic);
+  char actual[128], expected[128];
+  int length = snprintf(expected, sizeof(expected),
+    "scriptfs: final handle metadata failed: %d\n", metadata_error);
+  assert(length > 0 && (size_t) length < sizeof(expected));
+  assert(fread(actual, 1, sizeof(actual), diagnostic) == (size_t) length);
+  assert(!ferror(diagnostic) && !memcmp(actual, expected, length));
+  assert(!fclose(diagnostic));
+  return result;
+}
+
 int main(void) {
   char directory_buffer[128];
   struct sfs_directory listing = {.buffer=directory_buffer,.size=sizeof(directory_buffer)};
@@ -431,8 +454,10 @@ int main(void) {
       assert(handle_stats == stats_before && handle_releases == ++releases_before);
     }
     struct fuse_file_info final_info = {.fh = failure ? 11 : 12};
-    assert(sfs_close(mount, retained, &final_info, false) ==
-      (release_error ? release_error : handle_error));
+    int close_result = handle_error
+      ? close_with_expected_metadata_error(mount, retained, &final_info, handle_error)
+      : sfs_close(mount, retained, &final_info, false);
+    assert(close_result == (release_error ? release_error : handle_error));
     assert(!retained->handles && handle_stats == stats_before + 1);
     assert(handle_releases == releases_before + 1);
     handle_error = release_error = 0;

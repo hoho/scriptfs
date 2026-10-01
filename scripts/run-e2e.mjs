@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const rebuild = process.argv.includes("--rebuild");
 const vitest = fileURLToPath(
@@ -7,7 +8,14 @@ const vitest = fileURLToPath(
 );
 const child = spawn(
   process.execPath,
-  [vitest, "run", "test/e2e", "--no-file-parallelism"],
+  [
+    vitest,
+    "run",
+    process.platform === "win32"
+      ? path.join("test", "e2e", "windows-mount.test.ts")
+      : path.join("test", "e2e"),
+    "--no-file-parallelism",
+  ],
   {
     env: {
       ...process.env,

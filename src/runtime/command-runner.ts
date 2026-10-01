@@ -9,6 +9,7 @@ interface CommandOptions {
   cwd?: string;
   allowFailure?: boolean;
   output?: "capture" | "inherit";
+  input?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
 }
@@ -33,7 +34,13 @@ export function runCommand(
     const capture = options.output !== "inherit";
     const child = spawn(command, args, {
       cwd: options.cwd,
-      stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+      stdio: capture
+        ? [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"]
+        : [
+            options.input === undefined ? "inherit" : "pipe",
+            "inherit",
+            "inherit",
+          ],
       windowsHide: true,
     });
     let stdout = "";
@@ -109,6 +116,12 @@ export function runCommand(
         ),
       );
     });
+    if (options.input !== undefined) {
+      child.stdin?.on("error", (error: Error) => {
+        failure ??= error;
+      });
+      child.stdin?.end(options.input);
+    }
   });
 }
 

@@ -30,6 +30,25 @@ it("captures output and only permits ordinary command failures with allowFailure
   ).rejects.toMatchObject({ code: "ENOENT" });
 });
 
+it("passes command input over stdin without including it in failure diagnostics", async () => {
+  const input = "private command input\n";
+  const args = [
+    "-e",
+    'process.stdin.resume(); process.stdin.on("end", () => { process.exitCode = 3; });',
+  ];
+  const result = await runCommand(
+    process.execPath,
+    ["-e", "process.stdin.pipe(process.stdout);"],
+    { input },
+  );
+  expect(result.stdout).toBe(input);
+  const error = await runCommand(process.execPath, args, { input }).catch(
+    (error: unknown) => error,
+  );
+  expect(error).toBeInstanceOf(Error);
+  expect(error instanceof Error && error.message).not.toContain(input.trim());
+});
+
 it("does not spawn a command when already aborted", async () => {
   const reason = new Error("cancelled before spawn");
   const marker = path.join(root, "spawned");

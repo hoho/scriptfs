@@ -2983,7 +2983,7 @@ it("removes a created container when its SMB port is already occupied", async ()
     "--all",
     "--quiet",
     "--filter",
-    "ancestor=localhost/scriptfs-runtime:0.0.1",
+    "ancestor=localhost/scriptfs-runtime:0.0.2",
   ]);
   const ids = listed.stdout.split(/\s+/).filter(Boolean);
   const containers = ids.length
