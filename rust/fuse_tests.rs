@@ -132,6 +132,55 @@ fn whole_file_buffered_writes_update_the_existing_allocation() {
 }
 
 #[test]
+fn recycled_native_identity_does_not_retain_a_removed_files_provider_binding() {
+    recycled_identity("old", "Proxy/new", None);
+}
+
+#[test]
+fn recycled_proxy_identity_does_not_apply_its_old_root_to_source_paths() {
+    recycled_identity("Proxy/old", "new", Some(0));
+}
+
+fn recycled_identity(old_path: &str, new_path: &str, binding: Option<usize>) {
+    let (root, overlay) = fixture(
+        json!([{"match":"Proxy/**","root":"Proxy","provider":{"type":"directory","path":"proxy"}}]),
+        None,
+    );
+    fs::create_dir(root.path().join("proxy")).unwrap();
+    let old_backing = root.path().join(if binding.is_some() {
+        "proxy/old"
+    } else {
+        "source/old"
+    });
+    let new_backing = root.path().join(if binding.is_some() {
+        "source/new"
+    } else {
+        "proxy/new"
+    });
+    fs::write(&old_backing, "old contents").unwrap();
+    fs::write(&new_backing, "new contents").unwrap();
+    let mut core = Core::new(overlay).unwrap();
+    let replacement = core.overlay.getattr(new_path, None).unwrap().unwrap();
+    // Simulate inode reuse deterministically, without depending on the host
+    // filesystem's allocation policy.
+    let mut old = core.overlay.getattr(old_path, None).unwrap().unwrap();
+    old.identity = replacement.identity.clone();
+    let old_ino = core.observe(old_path, old, true);
+    core.nodes.get_mut(&old_ino).unwrap().binding = Some(binding);
+    fs::remove_file(&old_backing).unwrap();
+    let new_ino = lookup(&mut core, new_path);
+    assert_ne!(new_ino, old_ino);
+    let fh = core.open_file(new_ino, libc::O_RDWR).unwrap();
+    assert_eq!(core.read(fh, 0, 20).unwrap(), b"new contents");
+    core.release_handle(fh, false).unwrap();
+    let renamed = format!("{new_path}-renamed");
+    core.rename(new_path, &renamed, 0).unwrap();
+    core.remove(&renamed, false).unwrap();
+    assert!(!new_backing.with_file_name("new-renamed").exists());
+    core.shutdown().unwrap();
+}
+
+#[test]
 fn native_alias_discovered_after_external_removal_keeps_its_inode() {
     let (root, overlay) = fixture(json!([]), None);
     let source = root.path().join("source");

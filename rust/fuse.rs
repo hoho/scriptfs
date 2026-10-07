@@ -362,9 +362,7 @@ impl Core {
                     identity
                         .as_ref()
                         .and_then(|id| self.identities.get(id).copied())
-                        .filter(|ino| {
-                            !self.nodes[ino].detached && self.nodes[ino].metadata.nlink != Some(0)
-                        })
+                        .filter(|ino| self.identity_live(*ino))
                 } else {
                     None
                 }
@@ -406,6 +404,28 @@ impl Core {
             }
         }
         ino
+    }
+    fn identity_live(&mut self, ino: u64) -> bool {
+        let node = &self.nodes[&ino];
+        if node.detached || node.metadata.nlink == Some(0) {
+            return false;
+        }
+        if self.handles.values().any(|handle| handle.ino == ino) {
+            return true;
+        }
+        // Native filesystems can reuse dev/ino after an external unlink. A
+        // cached lookup alone does not prove that this is still a hard link
+        // to the old file, or that its provider binding remains applicable.
+        let paths = node.paths.clone();
+        let binding = node.binding;
+        let identity = node.metadata.identity.clone();
+        let kind = node.metadata.kind.clone();
+        paths.iter().any(|path| {
+            self.overlay.getattr(path, binding).is_ok_and(|metadata| {
+                metadata
+                    .is_some_and(|metadata| metadata.identity == identity && metadata.kind == kind)
+            })
+        })
     }
     fn discard(&mut self, ino: u64) {
         if ino == 1 {

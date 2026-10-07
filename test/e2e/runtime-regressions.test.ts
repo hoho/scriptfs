@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
 import { startScriptFs, ScriptFsStartupError } from "../../src/session.js";
 import { loadConfig } from "../../src/native-config.js";
 import { runCommand } from "../helpers/command.js";
@@ -29,6 +29,7 @@ let mount: string;
 let session: ScriptFsSession | undefined;
 let config: ScriptFsConfig;
 const controller = new AbortController();
+let testLogs = { stdout: "", stderr: "" };
 
 beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), "scriptfs-regression-e2e-"));
@@ -499,13 +500,26 @@ afterAll(async () => {
   }
 }, 30_000);
 
+beforeEach(async () => {
+  if (session)
+    testLogs = await runCommand("podman", ["logs", session.containerId], {
+      allowFailure: true,
+    });
+});
+
 afterEach(async ({ task }) => {
   if (task.result?.state === "fail" && session) {
     const logs = await runCommand("podman", ["logs", session.containerId], {
       allowFailure: true,
     });
-    console.error(logs.stdout.split("\n").slice(-50).join("\n"));
-    console.error(logs.stderr.split("\n").slice(-50).join("\n"));
+    for (const stream of ["stdout", "stderr"] as const) {
+      const previous = testLogs[stream];
+      const output = logs[stream].startsWith(previous)
+        ? logs[stream].slice(previous.length)
+        : logs[stream];
+      if (output.trim())
+        console.error(output.split("\n").slice(-50).join("\n"));
+    }
   }
 });
 

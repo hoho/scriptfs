@@ -76,7 +76,7 @@ mod tests {
         let joined = AtomicBool::new(false);
         let error = unmount_and_join_with(
             session,
-            || Err(std::io::Error::from_raw_os_error(libc::EBUSY).into()),
+            || Err(std::io::Error::other("busy mount").into()),
             |session| {
                 joined.store(true, Ordering::SeqCst);
                 session.join().unwrap();
@@ -86,11 +86,8 @@ mod tests {
         .unwrap_err();
         assert!(!joined.load(Ordering::SeqCst));
         assert_eq!(
-            error
-                .downcast_ref::<std::io::Error>()
-                .unwrap()
-                .raw_os_error(),
-            Some(libc::EBUSY)
+            error.downcast_ref::<std::io::Error>().unwrap().to_string(),
+            "busy mount"
         );
         let _ = release.send(());
         eventually(|| finished.load(Ordering::SeqCst));

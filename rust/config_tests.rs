@@ -492,6 +492,7 @@ fn provider_options_preserve_absence_null_and_json_values_in_config() {
 }
 
 #[test]
+#[cfg(unix)]
 fn provider_options_reach_real_worker_as_undefined_null_and_literal_json() {
     let root = fixture("native-config-provider-options-");
     let module = root.path().join("module.mjs");

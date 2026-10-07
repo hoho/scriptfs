@@ -4,6 +4,8 @@ use serde_json::{Value, json};
 use std::os::fd::AsRawFd;
 #[cfg(unix)]
 use std::sync::{Arc, Condvar};
+#[cfg(unix)]
+use std::time::{Duration, Instant};
 use std::{
     io::{BufReader, IoSlice, Read, Write},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
@@ -11,7 +13,6 @@ use std::{
         Mutex,
         atomic::{AtomicU64, Ordering},
     },
-    time::{Duration, Instant},
 };
 
 pub struct Worker {
@@ -178,9 +179,6 @@ impl Worker {
         }
         Pending(self.watchdog.as_ref())
     }
-    #[cfg(not(unix))]
-    fn watch(&self) {}
-
     fn next_id(&self) -> u64 {
         self.next_id.fetch_add(1, Ordering::Relaxed)
     }
@@ -191,6 +189,7 @@ impl Worker {
             .io
             .lock()
             .map_err(|_| anyhow::anyhow!("Module worker lock poisoned"))?;
+        #[cfg(unix)]
         let _pending = self.watch();
         io.send(id, header, body)?;
         io.receive(id)
@@ -228,6 +227,7 @@ impl Worker {
             .io
             .lock()
             .map_err(|_| anyhow::anyhow!("Module worker lock poisoned"))?;
+        #[cfg(unix)]
         let _pending = self.watch();
         let count = headers.len();
         io.send_encoded(&encoded, &[])?;

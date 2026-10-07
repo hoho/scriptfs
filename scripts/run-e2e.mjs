@@ -71,13 +71,18 @@ let code = examplesOnly
     );
 // Filtered runs target the platform suites only.
 if (code === 0 && !windows && (examplesOnly || args.length === 0))
-  code = await run(["--test", ...(await exampleTests())], {
-    cwd: path.join(root, "examples"),
-    env: {
-      ...process.env,
-      SCRIPTFS_TEST_IMAGE:
-        process.env.SCRIPTFS_TEST_IMAGE ??
-        process.env.SCRIPTFS_E2E_RUNTIME_IMAGE,
+  // Like the platform suites, examples share the container engine and SMB
+  // mount client. Concurrent suite startup can time out macOS SMB mounts.
+  code = await run(
+    ["--test", "--test-concurrency=1", ...(await exampleTests())],
+    {
+      cwd: path.join(root, "examples"),
+      env: {
+        ...process.env,
+        SCRIPTFS_TEST_IMAGE:
+          process.env.SCRIPTFS_TEST_IMAGE ??
+          process.env.SCRIPTFS_E2E_RUNTIME_IMAGE,
+      },
     },
-  });
+  );
 process.exitCode = code;
