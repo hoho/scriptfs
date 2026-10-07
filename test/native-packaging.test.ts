@@ -138,6 +138,66 @@ it("declares one optional platform package per release target", async () => {
   }
 });
 
+it.each([
+  { name: "LF", newline: "\n" },
+  { name: "CRLF", newline: "\r\n" },
+])("checks and bumps versions with $name line endings", async ({ newline }) => {
+  const root = await temporary();
+  await put(
+    path.join(root, "scripts/bump-version.mjs"),
+    await readFile("scripts/bump-version.mjs"),
+  );
+  for (const file of [
+    "package.json",
+    "packages/module/package.json",
+    "packages/testing/package.json",
+  ])
+    await put(
+      path.join(root, file),
+      JSON.stringify({ version: "1.2.3", private: true }, null, 2).replace(
+        /\n/g,
+        newline,
+      ) + newline,
+    );
+  await mkdir(path.join(root, "packages/native"));
+  await put(path.join(root, "Cargo.toml"), `version = "1.2.3"${newline}`);
+  const lock = [
+    "[[package]]",
+    'name = "scriptfs"',
+    'version = "1.2.3"',
+    "",
+  ].join(newline);
+  await put(path.join(root, "Cargo.lock"), lock);
+  await put(
+    path.join(root, "rust/runtime.rs"),
+    "// scriptfs-runtime:" + `1.2.3${newline}`,
+  );
+  for (const args of [["init"], ["add", "."]]) {
+    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    expect(result.status, result.stderr).toBe(0);
+  }
+  const run = (...args: string[]) =>
+    spawnSync(process.execPath, ["scripts/bump-version.mjs", ...args], {
+      cwd: root,
+      encoding: "utf8",
+    });
+  for (const args of [
+    ["--check", "v1.2.3"],
+    ["2.0.0-rc.1"],
+    ["--check", "v2.0.0-rc.1"],
+  ]) {
+    const result = run(...args);
+    expect(result.status, result.stderr).toBe(0);
+  }
+  expect(await readFile(path.join(root, "Cargo.lock"), "utf8")).toBe(
+    lock.replace("1.2.3", "2.0.0-rc.1"),
+  );
+  await put(path.join(root, "Cargo.lock"), lock);
+  const mismatch = run("--check");
+  expect(mismatch.status).not.toBe(0);
+  expect(mismatch.stderr).toContain("Cargo.lock: 1.2.3");
+});
+
 /** Minimal executable headers recognised by the pre-publish check. */
 function header(os: string, cpu: string) {
   const buffer = Buffer.alloc(256);

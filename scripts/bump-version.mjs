@@ -100,7 +100,7 @@ for (const file of files) {
     const pattern =
       file === "Cargo.toml"
         ? /^(version = ")([^"]+)(")$/m
-        : /(\[\[package\]\]\nname = "scriptfs"\nversion = ")([^"]+)(")/;
+        : /(\[\[package\]\]\r?\nname = "scriptfs"\r?\nversion = ")([^"]+)(")/;
     const match = pattern.exec(contents);
     if (
       !match ||

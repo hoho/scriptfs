@@ -807,6 +807,7 @@ pub struct fuse_init_out {
 
 #[repr(C)]
 #[derive(Debug, FromBytes, KnownLayout, Immutable)]
+#[allow(dead_code)] // CUSE initialization is defined by the ABI but not implemented.
 pub struct cuse_init_in {
     pub major: u32,
     pub minor: u32,
@@ -816,6 +817,7 @@ pub struct cuse_init_in {
 
 #[repr(C)]
 #[derive(Debug, KnownLayout, Immutable)]
+#[allow(dead_code)] // CUSE initialization is defined by the ABI but not implemented.
 pub struct cuse_init_out {
     pub major: u32,
     pub minor: u32,
@@ -861,6 +863,7 @@ pub struct fuse_ioctl_in {
 
 #[repr(C)]
 #[derive(Debug, KnownLayout, Immutable)]
+#[allow(dead_code)] // Unrestricted ioctl retries using iovecs are not implemented.
 pub struct fuse_ioctl_iovec {
     pub base: u64,
     pub len: u64,
@@ -989,6 +992,7 @@ pub struct fuse_notify_store_out {
 
 #[repr(C)]
 #[derive(Debug, KnownLayout, Immutable)]
+#[allow(dead_code)] // Retrieving cached data through notifications is not implemented.
 pub struct fuse_notify_retrieve_out {
     pub notify_unique: u64,
     pub nodeid: u64,
@@ -999,6 +1003,7 @@ pub struct fuse_notify_retrieve_out {
 
 #[repr(C)]
 #[derive(Debug, FromBytes, KnownLayout, Immutable)]
+#[allow(dead_code)] // Retrieving cached data through notifications is not implemented.
 pub struct fuse_notify_retrieve_in {
     // matches the size of fuse_write_in
     pub dummy1: u64,
