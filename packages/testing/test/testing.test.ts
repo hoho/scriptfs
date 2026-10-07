@@ -19,6 +19,8 @@ import { init, packageVersion, scaffold } from "../src/scaffold.js";
 let root: string;
 let moduleDir: string;
 let workspace: string;
+const windows = process.platform === "win32";
+const mountOptions = windows ? { mount: "S:" } : {};
 
 const manifest = {
   name: "fixture",
@@ -70,6 +72,7 @@ describe("prepare", () => {
     const prepared = await prepare(
       {
         module: pathToFileURL(`${moduleDir}/`),
+        ...mountOptions,
         cwd: root,
         instance: "fixture",
         settings: { greeting: "hi" },
@@ -98,7 +101,8 @@ describe("prepare", () => {
     const inbound = prepared.inbound.get("http");
     expect(inbound).toBeGreaterThan(0);
     expect(prepared.stateDir).toBe(path.join(workspace, "state"));
-    expect(prepared.mount).toBe(path.join(workspace, "mount"));
+    const mount = windows ? "S:" : path.join(workspace, "mount");
+    expect(prepared.mount).toBe(mount);
 
     const secretFile = path.join(workspace, "secrets", "token");
     expect(prepared.config).toEqual({
@@ -125,7 +129,7 @@ describe("prepare", () => {
         {
           name: "module",
           source: path.join(workspace, "source"),
-          mountPoint: path.join(workspace, "mount"),
+          mountPoint: mount,
           readOnly: true,
           rules: [
             {
@@ -139,7 +143,7 @@ describe("prepare", () => {
       container: { logLevel: "debug", image: "localhost/example:test" },
     });
     expect(await readFile(secretFile, "utf8")).toBe("s3cret");
-    expect((await stat(secretFile)).mode & 0o777).toBe(0o600);
+    if (!windows) expect((await stat(secretFile)).mode & 0o777).toBe(0o600);
     expect(
       await readFile(path.join(workspace, "paths/data/nested/b.txt"), "utf8"),
     ).toBe("B");
@@ -162,7 +166,7 @@ describe("prepare", () => {
         outbound: { api: { target: "10.0.0.1:80" } },
         paths: { data: "./data" },
         state: "./state",
-        mount: "./mnt",
+        mount: windows ? "S:" : "./mnt",
       },
       workspace,
     );
@@ -174,7 +178,7 @@ describe("prepare", () => {
     });
     expect(module?.paths).toEqual({ data: path.join(root, "data") });
     expect(module?.state).toBe(path.join(root, "state"));
-    expect(prepared.mount).toBe(path.join(root, "mnt"));
+    expect(prepared.mount).toBe(windows ? "S:" : path.join(root, "mnt"));
     expect(prepared.config.container).toEqual({ logLevel: "silent" });
     expect(prepared.config.filesystems[0]?.rules).toEqual([
       { match: "**", opaque: true, provider: { module: "module" } },
@@ -184,15 +188,18 @@ describe("prepare", () => {
   it("reads the image and log level from the environment", async () => {
     vi.stubEnv("SCRIPTFS_TEST_IMAGE", "localhost/from-env:1");
     vi.stubEnv("SCRIPTFS_TEST_LOG_LEVEL", "info");
-    const { config } = await prepare({ module: moduleDir }, workspace);
+    const { config } = await prepare(
+      { module: moduleDir, ...mountOptions },
+      workspace,
+    );
     expect(config.container).toEqual({
       logLevel: "info",
       image: "localhost/from-env:1",
     });
     vi.stubEnv("SCRIPTFS_TEST_LOG_LEVEL", "loud");
-    await expect(prepare({ module: moduleDir }, workspace)).rejects.toThrow(
-      "SCRIPTFS_TEST_LOG_LEVEL must be silent, info or debug",
-    );
+    await expect(
+      prepare({ module: moduleDir, ...mountOptions }, workspace),
+    ).rejects.toThrow("SCRIPTFS_TEST_LOG_LEVEL must be silent, info or debug");
   });
 
   it("rejects ports and state the manifest does not declare", async () => {

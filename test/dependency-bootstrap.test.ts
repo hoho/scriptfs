@@ -10,6 +10,57 @@ afterEach(async () => {
     await rm(directory, { recursive: true, force: true });
 });
 
+it.skipIf(process.platform === "win32").each([false, true])(
+  "keeps the runner Rust installation under sudo (custom homes: %s)",
+  async (configured) => {
+    const root = await mkdtemp(path.join(tmpdir(), "scriptfs-ci-rust-"));
+    directories.push(root);
+    const sudo = path.join(root, "sudo");
+    const probe = path.join(root, "probe");
+    const resultFile = path.join(root, "environment.json");
+    await writeFile(
+      sudo,
+      `#!/usr/bin/env node
+const {spawnSync} = require("node:child_process");
+const env = {...process.env};
+delete env.RUSTUP_HOME;
+delete env.CARGO_HOME;
+const [command, ...args] = process.argv.slice(2);
+const child = spawnSync(command, args, {env, stdio: "inherit"});
+if (child.error) throw child.error;
+process.exit(child.status ?? 1);
+`,
+    );
+    await writeFile(
+      probe,
+      `#!/usr/bin/env node
+require("node:fs").writeFileSync(${JSON.stringify(resultFile)}, JSON.stringify({
+  rustup: process.env.RUSTUP_HOME,
+  cargo: process.env.CARGO_HOME,
+  args: process.argv.slice(2),
+}));
+`,
+    );
+    await chmod(sudo, 0o755);
+    await chmod(probe, 0o755);
+    const rustup = configured ? path.join(root, "rustup") : undefined;
+    const cargo = configured ? path.join(root, "cargo") : undefined;
+    await runCommand("make", ["ci-linux", `MAKE=${probe}`], {
+      env: {
+        ...process.env,
+        PATH: `${root}${path.delimiter}${process.env.PATH ?? ""}`,
+        RUSTUP_HOME: rustup,
+        CARGO_HOME: cargo,
+      },
+    });
+    expect(JSON.parse(await readFile(resultFile, "utf8"))).toEqual({
+      rustup: rustup ?? path.join(process.env.HOME ?? "", ".rustup"),
+      cargo: cargo ?? path.join(process.env.HOME ?? "", ".cargo"),
+      args: ["check-rust-linux", "test-e2e"],
+    });
+  },
+);
+
 it("declares pnpm compatibility without pinning its runtime in the lockfile", async () => {
   const manifest = JSON.parse(await readFile("package.json", "utf8")) as {
     engines: { pnpm: string };

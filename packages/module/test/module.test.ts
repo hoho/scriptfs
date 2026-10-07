@@ -171,6 +171,35 @@ describe("ScriptFsModule", () => {
     expect(() => module.statePath()).toThrow('set "state": true');
   });
 
+  it.each(["C:\\state", "C:/state", "\\\\server\\share\\state"])(
+    "keeps Windows state and bound paths inside %s",
+    (directory) => {
+      const module = new ScriptFsModule(
+        runtime({ stateDir: directory, paths: { notes: directory } }),
+      );
+      expect(module.statePath("nested", "state.json")).toBe(
+        path.win32.join(directory, "nested", "state.json"),
+      );
+      expect(module.path("notes", "note.md")).toBe(
+        path.win32.join(directory, "note.md"),
+      );
+      for (const escape of [
+        "../escape",
+        "..\\escape",
+        "C:\\other\\file",
+        "D:\\other\\file",
+        "\\\\other\\share\\file",
+      ]) {
+        expect(() => module.statePath(escape)).toThrow(
+          expect.objectContaining({ code: "EACCES" }),
+        );
+        expect(() => module.path("notes", escape)).toThrow(
+          expect.objectContaining({ code: "EACCES" }),
+        );
+      }
+    },
+  );
+
   it("runs stop callbacks in reverse and reports every failure", async () => {
     const module = new ScriptFsModule(runtime());
     const order: number[] = [];

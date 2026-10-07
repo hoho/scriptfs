@@ -160,8 +160,17 @@ export class ScriptFsModule<Settings extends object = Record<string, unknown>> {
 }
 
 function within(root: string, segments: readonly string[]): string {
-  const resolved = path.posix.resolve(root, ...segments);
-  if (resolved !== root && !resolved.startsWith(`${root}/`))
+  const paths =
+    path.win32.isAbsolute(root) && !path.posix.isAbsolute(root)
+      ? path.win32
+      : path.posix;
+  const resolved = paths.resolve(root, ...segments);
+  const relative = paths.relative(root, resolved);
+  if (
+    relative === ".." ||
+    relative.startsWith(`..${paths.sep}`) ||
+    paths.isAbsolute(relative)
+  )
     throw fsError("EACCES", `${segments.join("/")} escapes ${root}`);
   return resolved;
 }

@@ -142,7 +142,7 @@ ci-install:
 	$(PNPM) install --frozen-lockfile
 
 ci-linux:
-	sudo env "PATH=$$PATH" "CI=true" "NPM_CONFIG_USERCONFIG=$$(npm config get userconfig)" $(MAKE) check-rust-linux test-e2e
+	sudo env "PATH=$$PATH" "RUSTUP_HOME=$${RUSTUP_HOME:-$$HOME/.rustup}" "CARGO_HOME=$${CARGO_HOME:-$$HOME/.cargo}" "CI=true" "NPM_CONFIG_USERCONFIG=$$(npm config get userconfig)" $(MAKE) check-rust-linux test-e2e
 
 ci-linux-setup:
 	sudo apt-get update

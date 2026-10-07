@@ -336,7 +336,7 @@ it("pins the published runtime image by digest", async () => {
   const missing = releaseImage(root, "--check");
   expect(missing.status).not.toBe(0);
   expect(missing.stderr).toContain(
-    "container/runtime-image.json is missing or invalid",
+    `${path.join("container", "runtime-image.json")} is missing or invalid`,
   );
 
   const image = `ghcr.io/example/runtime@${digest}`;
