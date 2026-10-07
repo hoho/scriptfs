@@ -1311,7 +1311,7 @@ fn modules_mount_paths_and_state_and_publish_ports() {
         format!("{}:/scriptfs/paths/api/data", root.join("data").display()),
         format!(
             "{}:/scriptfs/state/api",
-            root.join(".scriptfs/state/api").display()
+            root.join(".scriptfs").join("state").join("api").display()
         ),
     ] {
         assert!(create.contains(&expected), "{expected} not in {create:?}");
@@ -1563,7 +1563,7 @@ fn installs_dependencies_in_the_runtime_image_once() {
             "--no-update-notifier"
         ]
     );
-    let cache = fixture.root.path().join("cache/dependencies");
+    let cache = fixture.root.path().join("cache").join("dependencies");
     let entries: Vec<_> = fs::read_dir(&cache)
         .unwrap()
         .map(|e| e.unwrap().path())
@@ -1643,7 +1643,10 @@ fn installed_dependencies_shadow_host_node_modules() {
     let volumes = module_volumes(&fixture);
     assert_eq!(volumes.len(), 2);
     assert!(
-        volumes[1].ends_with("/node_modules:/scriptfs/modules/0/package/node_modules:ro"),
+        volumes[1].ends_with(&format!(
+            "{}node_modules:/scriptfs/modules/0/package/node_modules:ro",
+            std::path::MAIN_SEPARATOR
+        )),
         "{volumes:?}"
     );
     session.stop().unwrap();
@@ -2827,8 +2830,8 @@ fn sdk_config_protocol_load_uses_real_module_resolution() {
     assert_eq!(
         frame["config"]["modules"]["provider"],
         json!({
-            "manifest": root.path().join("node_modules/provider").join(module::MANIFEST_FILE),
-            "state": root.path().join(".scriptfs/state/provider")
+            "manifest": root.path().join("node_modules").join("provider").join(module::MANIFEST_FILE),
+            "state": root.path().join(".scriptfs").join("state").join("provider")
         })
     );
 }

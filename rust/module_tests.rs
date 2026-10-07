@@ -420,11 +420,11 @@ fn container_targets_and_inbound_ports_must_not_collide() {
     fs::create_dir_all(project.path("data")).unwrap();
     project.module(
         "a",
-        manifest(json!({"paths":{"x":{"target":"/data","default":"/"}},"ports":{"web":{"direction":"inbound","port":8080}}})),
+        manifest(json!({"paths":{"x":{"target":"/data","default":project.path("data")}},"ports":{"web":{"direction":"inbound","port":8080}}})),
     );
     project.module(
         "b",
-        manifest(json!({"paths":{"x":{"target":"/data/inner","default":"/"}}})),
+        manifest(json!({"paths":{"x":{"target":"/data/inner","default":project.path("data")}}})),
     );
     project.module(
         "c",
@@ -667,7 +667,7 @@ fn resolution_is_idempotent_and_reported_as_absolute_paths() {
             "manifest": project.path("m").join(MANIFEST_FILE),
             "paths": {"data": project.path("data")},
             "secrets": {"token": {"file": project.path("token")}},
-            "state": project.path(".scriptfs/state/m")
+            "state": project.path(".scriptfs").join("state").join("m")
         })
     );
     let mut again = Config::parse(&serde_json::to_vec(&output).unwrap()).unwrap();

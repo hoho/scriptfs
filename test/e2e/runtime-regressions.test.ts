@@ -3273,6 +3273,7 @@ it("rejects case-colliding shares without mounting them", async () => {
         { name: "Work", source, mountPoint: path.join(root, "case-upper") },
         { name: "work", source, mountPoint: path.join(root, "case-lower") },
       ],
+      container: { logLevel: "silent" },
     }),
   ).rejects.toThrow("unique name");
   await expect(access(path.join(root, "case-upper"))).rejects.toMatchObject({

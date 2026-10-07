@@ -69,6 +69,7 @@ function processFixture() {
     send: (message: unknown) =>
       stdout.write(`SCRIPTFS_SDK:${JSON.stringify(message)}\n`),
     raw: (message: string) => stdout.write(message),
+    stderr: (message: string) => stderr.write(message),
     close: (code = 0) => child.emit("close", code, null),
   };
 }
@@ -213,6 +214,48 @@ it("starts a native session and exposes its mounted shares", async () => {
   process.send({ event: "stopped" });
   process.close();
   await session.wait();
+});
+
+it.each(["silent", "info", "debug", undefined] as const)(
+  "respects logLevel %s when forwarding native diagnostics",
+  async (logLevel) => {
+    const stdout = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+    const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    const runtime = processFixture();
+    const started = startScriptFs({ ...config, container: { logLevel } });
+    runtime.raw("native progress\n");
+    runtime.stderr("native diagnostic\n");
+    runtime.send({ event: "ready", containerId: "container", mounts: [] });
+    const session = await started;
+    if (logLevel === "silent") {
+      expect(stdout).not.toHaveBeenCalled();
+      expect(stderr).not.toHaveBeenCalled();
+    } else {
+      expect(stdout).toHaveBeenCalledWith("native progress\n");
+      expect(stderr).toHaveBeenCalledWith("native diagnostic\n");
+    }
+    runtime.send({ event: "stopped" });
+    runtime.close();
+    await session.wait();
+  },
+);
+
+it("retains silent native diagnostics in unexpected exit errors", async () => {
+  const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  const runtime = processFixture();
+  const started = startScriptFs({
+    ...config,
+    container: { logLevel: "silent" },
+  });
+  runtime.stderr("native failure details\n");
+  runtime.send({ event: "ready", containerId: "container", mounts: [] });
+  const session = await started;
+  const failed = expect(session.wait()).rejects.toThrow(
+    "native failure details",
+  );
+  runtime.close(1);
+  await failed;
+  expect(stderr).not.toHaveBeenCalled();
 });
 
 it("coalesces stop requests and waits for the native process to close", async () => {

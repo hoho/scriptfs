@@ -56,6 +56,7 @@ export async function startScriptFs(
   let stopRequest:
     ReturnType<typeof Promise.withResolvers<undefined>> | undefined;
   let stderr = "";
+  const logOutput = config.container?.logLevel !== "silent";
 
   const session: ScriptFsSession = {
     get containerId() {
@@ -104,7 +105,7 @@ export async function startScriptFs(
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk: string) => {
     stderr = (stderr + chunk).slice(-16_384);
-    process.stderr.write(chunk);
+    if (logOutput) process.stderr.write(chunk);
   });
   const lines = createInterface({ input: child.stdout });
   lines.on("error", (reason: Error) => {
@@ -113,7 +114,7 @@ export async function startScriptFs(
   });
   lines.on("line", (line) => {
     if (!line.startsWith(SDK_PREFIX)) {
-      process.stdout.write(`${line}\n`);
+      if (logOutput) process.stdout.write(`${line}\n`);
       return;
     }
     try {

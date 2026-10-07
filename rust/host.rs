@@ -437,7 +437,16 @@ fn prepare_config(
                 filesystem.read_only,
             )?;
             provider.path = Some(if file {
-                PathBuf::from(container).join(target.file_name().context("Proxy has no name")?)
+                // This path is consumed inside Linux even when the host is Windows.
+                format!(
+                    "{container}/{}",
+                    target
+                        .file_name()
+                        .context("Proxy has no name")?
+                        .to_str()
+                        .context("Proxy name must be valid UTF-8")?
+                )
+                .into()
             } else {
                 container.into()
             });
