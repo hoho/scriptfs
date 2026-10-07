@@ -34,11 +34,27 @@ fn exchange(port: u16, message: &[u8]) -> Vec<u8> {
     stream
         .set_read_timeout(Some(Duration::from_secs(10)))
         .unwrap();
-    stream.write_all(message).unwrap();
-    stream.shutdown(Shutdown::Write).unwrap();
-    let mut output = Vec::new();
-    stream.read_to_end(&mut output).unwrap();
-    output
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    // Echoes arrive before the request finishes. Drain them concurrently so
+    // neither direction depends on the entire payload fitting in TCP buffers.
+    thread::scope(|scope| {
+        let mut reader = stream.try_clone().unwrap();
+        let reading = scope.spawn(move || {
+            let mut output = Vec::new();
+            reader.read_to_end(&mut output).map(|_| output)
+        });
+        let written = stream
+            .write_all(message)
+            .and_then(|()| stream.shutdown(Shutdown::Write));
+        if written.is_err() {
+            let _ = stream.shutdown(Shutdown::Both);
+        }
+        let output = reading.join().unwrap();
+        written.expect("writing the tunnel request and half-closing it");
+        output.expect("reading the tunnel response through EOF")
+    })
 }
 
 /// Connects, sends a message, and expects the tunnel to close the connection
@@ -66,7 +82,7 @@ fn module_connections_reach_host_targets_with_half_close() {
         TOKEN.into(),
         BTreeMap::from([("api.http".into(), target.to_string())]),
     );
-    let payload = vec![7u8; 256 * 1024];
+    let payload = vec![7u8; 1024 * 1024];
     assert_eq!(exchange(ports["api.http"], &payload), payload);
     assert_eq!(exchange(ports["api.http"], b"again"), b"again");
 }
