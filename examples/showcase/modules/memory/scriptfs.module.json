@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../../scriptfs-module.schema.json",
+  "name": "showcase-memory",
+  "version": "1.0.0",
+  "description": "A mutable in-memory tree that supports the full file system surface.",
+  "entry": "./index.mjs"
+}

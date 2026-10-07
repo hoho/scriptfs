@@ -1,0 +1,29 @@
+{
+  "$schema": "../../scriptfs.schema.json",
+  "modules": {
+    "inbox": {
+      "manifest": "./module",
+      "settings": {
+        "maxMessages": 50
+      },
+      "ports": {
+        "http": { "hostPort": 18787 }
+      }
+    }
+  },
+  "filesystems": [
+    {
+      "name": "inbox",
+      "source": "./source",
+      "mountPoint": "./mount",
+      "rules": [
+        {
+          "match": "Inbox/**",
+          "root": "Inbox",
+          "opaque": true,
+          "provider": { "module": "inbox" }
+        }
+      ]
+    }
+  ]
+}

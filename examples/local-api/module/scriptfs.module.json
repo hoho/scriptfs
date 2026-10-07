@@ -1,0 +1,27 @@
+{
+  "$schema": "../../../scriptfs-module.schema.json",
+  "name": "todo-api",
+  "version": "1.0.0",
+  "description": "Shows todos from an HTTP API on the host as editable Markdown files.",
+  "entry": "./index.mjs",
+  "settings": {
+    "cacheSeconds": {
+      "type": "integer",
+      "description": "How long a fetched todo list is reused.",
+      "default": 2
+    }
+  },
+  "secrets": {
+    "token": {
+      "description": "Bearer token for the todo API.",
+      "env": "TODO_API_TOKEN"
+    }
+  },
+  "ports": {
+    "api": {
+      "direction": "outbound",
+      "description": "The todo API.",
+      "target": "127.0.0.1:4310"
+    }
+  }
+}

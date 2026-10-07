@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../../scriptfs-module.schema.json",
+  "name": "showcase-catalog",
+  "version": "1.0.0",
+  "description": "A generated directory tree whose action files accept commands.",
+  "entry": "./index.mjs"
+}

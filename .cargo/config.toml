@@ -1,0 +1,12 @@
+# Windows executables link the C runtime statically so that they do not require
+# the Visual C++ Redistributable.
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# Linux release binaries are static musl executables; rust-lld links them on any
+# Linux build host, including when cross-compiling to the other architecture.
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"
+
+[target.aarch64-unknown-linux-musl]
+linker = "rust-lld"

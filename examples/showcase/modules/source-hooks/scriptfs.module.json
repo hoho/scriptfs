@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../../scriptfs-module.schema.json",
+  "name": "showcase-source-hooks",
+  "version": "1.0.0",
+  "description": "Observes handle lifecycle events for files that stay on disk.",
+  "entry": "./index.mjs"
+}

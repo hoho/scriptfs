@@ -1,0 +1,28 @@
+{
+  "name": "@scriptfs/win32-arm64",
+  "version": "0.1.0",
+  "description": "ScriptFS native binary for Windows arm64",
+  "author": "Marat Abdullin <ma@xrlt.net>",
+  "license": "MIT",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "scriptfs.exe"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoho/scriptfs.git",
+    "directory": "packages/native/win32-arm64"
+  },
+  "bugs": {
+    "url": "https://github.com/hoho/scriptfs/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

@@ -1,45 +1,77 @@
-FROM docker.io/library/node:22-bookworm-slim
+FROM docker.io/library/rust:1.93-slim-bookworm AS build
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY rust ./rust
+COPY vendor ./vendor
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/build/target \
+    cargo build --release --locked && cp target/release/scriptfs /build/scriptfs
 
-ARG NPM_REGISTRY=https://registry.npmjs.org/
-ARG RUN_NATIVE_SANITIZERS=true
-
+FROM docker.io/library/node:22-bookworm-slim AS runtime-deps
+# The registry to install from; npm's public registry when empty.
+ARG NPM_REGISTRY=
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-      fuse \
-      g++ \
-      libfuse-dev \
-      make \
-      pkg-config \
-      python3 \
-      samba \
+    && apt-get install -y --no-install-recommends fuse samba \
     && rm -rf /var/lib/apt/lists/* \
     && echo user_allow_other > /etc/fuse.conf
-
 WORKDIR /opt/scriptfs
 COPY container/package.json ./package.json
 COPY container/npm-shrinkwrap.json ./npm-shrinkwrap.json
-COPY container/patch-fuse-binding.mjs ./patch-fuse-binding.mjs
-COPY container/fuse-file-attributes.c.inc container/fuse-file-attributes.js.inc ./
-COPY container/fuse-inode-backend.h container/fuse-inode-backend.test.c ./
-RUN npm config set registry "${NPM_REGISTRY}" \
+RUN if [ -n "${NPM_REGISTRY}" ]; then npm config set registry "${NPM_REGISTRY}"; fi \
     && npm ci --omit=dev --ignore-scripts --no-fund \
-    && node patch-fuse-binding.mjs \
-    && cc -g -O1 -Wall -Wextra -Werror -Wno-unused-function \
-      fuse-inode-backend.test.c \
-      $(pkg-config --cflags --libs fuse) -o /tmp/fuse-inode-backend-test \
-    && /tmp/fuse-inode-backend-test \
-    && rm /tmp/fuse-inode-backend-test \
-    && if [ "${RUN_NATIVE_SANITIZERS}" = "true" ]; then \
-      cc -g -O1 -Wall -Wextra -Werror -Wno-unused-function \
-        -fsanitize=address,undefined fuse-inode-backend.test.c \
-        $(pkg-config --cflags --libs fuse) -o /tmp/fuse-inode-backend-sanitized-test \
-      && /tmp/fuse-inode-backend-sanitized-test \
-      && rm /tmp/fuse-inode-backend-sanitized-test; \
-    fi \
-    && npm rebuild --build-from-source --no-fund \
     && npm cache clean --force
-
-COPY dist ./dist
-
+COPY packages/module/package.json packages/module/README.md /node_modules/@scriptfs/module/
+COPY packages/module/dist /node_modules/@scriptfs/module/dist
+ENV SCRIPTFS_JS_ROOT=/opt/scriptfs
 EXPOSE 445
-CMD ["node", "/opt/scriptfs/dist/container/main.js"]
+CMD ["/opt/scriptfs/scriptfs", "--container"]
+
+FROM runtime-deps AS runtime-base
+COPY --from=build /build/scriptfs /opt/scriptfs/scriptfs
+
+FROM build AS sync-probe
+COPY container/native-sync-probe.c /build/native-sync-probe.c
+RUN cc -std=c11 -Wall -Wextra -Werror -shared -fPIC -o /build/native-sync-probe.so /build/native-sync-probe.c
+
+FROM runtime-base AS runtime-test
+COPY --from=sync-probe /build/native-sync-probe.so /opt/scriptfs/native-sync-probe.so
+ENV LD_PRELOAD=/opt/scriptfs/native-sync-probe.so
+
+FROM build AS rust-check
+RUN rustup component add clippy
+COPY --from=runtime-base /usr/local/bin/node /usr/local/bin/node
+COPY --from=runtime-base /opt/scriptfs/node_modules /opt/scriptfs/node_modules
+ENV SCRIPTFS_JS_ROOT=/opt/scriptfs
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/build/target \
+    cargo clippy --all-targets --no-deps --locked -- -D warnings \
+    && cargo test --locked --no-run --message-format=json \
+        | node --input-type=module -e 'import fs from "node:fs"; const rows=fs.readFileSync(0,"utf8").trim().split("\n").map(line=>JSON.parse(line)); const test=rows.find(row=>row.executable && row.target.name==="scriptfs"); if(!test)throw new Error("ScriptFS unit test executable was not built"); fs.copyFileSync(test.executable,"/build/scriptfs-tests");' \
+    && CARGO_TARGET_DIR=/build/target/fuser cargo test --manifest-path vendor/fuser/Cargo.toml --lib --locked --no-default-features --features abi-7-31 --no-run --message-format=json \
+        | node --input-type=module -e 'import fs from "node:fs"; const rows=fs.readFileSync(0,"utf8").trim().split("\n").map(line=>JSON.parse(line)); const test=rows.find(row=>row.executable && row.target.name==="fuser"); if(!test)throw new Error("FUSE unit test executable was not built"); fs.copyFileSync(test.executable,"/build/fuser-tests");'
+
+FROM runtime-base AS rust-check-runtime
+COPY --from=rust-check /build/scriptfs-tests /opt/scriptfs/scriptfs-tests
+COPY --from=rust-check /build/fuser-tests /opt/scriptfs/fuser-tests
+COPY examples /build/examples
+COPY scriptfs.schema.json scriptfs-module.schema.json /build/
+WORKDIR /build
+CMD ["sh", "-c", "/opt/scriptfs/scriptfs-tests && /opt/scriptfs/fuser-tests"]
+
+# The published image reuses the static Linux binary from the matching
+# packages/native/linux-<cpu> package instead of compiling it again.
+FROM runtime-deps AS runtime-release
+ARG TARGETARCH
+LABEL org.opencontainers.image.source="https://github.com/hoho/scriptfs" \
+      org.opencontainers.image.description="ScriptFS runtime: FUSE, Samba, and the module worker" \
+      org.opencontainers.image.licenses="MIT"
+RUN --mount=type=bind,source=packages/native,target=/native \
+    case "${TARGETARCH}" in \
+        amd64) cpu=x64 ;; \
+        arm64) cpu=arm64 ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && install -m 0755 "/native/linux-${cpu}/scriptfs" /opt/scriptfs/scriptfs \
+    && /opt/scriptfs/scriptfs --help > /dev/null
+
+FROM runtime-base AS runtime

@@ -1,0 +1,21 @@
+{
+  "$schema": "../../../scriptfs-module.schema.json",
+  "name": "notes-by-tag",
+  "version": "1.0.0",
+  "description": "Groups Markdown notes from a host folder by their #tags.",
+  "entry": "./index.mjs",
+  "settings": {
+    "extensions": {
+      "type": "array",
+      "description": "File extensions treated as notes.",
+      "default": [".md", ".txt"]
+    }
+  },
+  "paths": {
+    "notes": {
+      "description": "Folder with notes; mounted read-only.",
+      "default": "~/Notes",
+      "target": "/notes"
+    }
+  }
+}

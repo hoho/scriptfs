@@ -1,0 +1,39 @@
+{
+  "name": "@scriptfs/testing",
+  "version": "0.1.0",
+  "description": "End-to-end testing and development tools for ScriptFS modules",
+  "author": "Marat Abdullin <ma@xrlt.net>",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "scriptfs-module": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "scriptfs": "workspace:^"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoho/scriptfs.git",
+    "directory": "packages/testing"
+  },
+  "bugs": {
+    "url": "https://github.com/hoho/scriptfs/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

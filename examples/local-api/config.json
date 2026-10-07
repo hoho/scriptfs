@@ -1,0 +1,29 @@
+{
+  "$schema": "../../scriptfs.schema.json",
+  "modules": {
+    "todos": {
+      "manifest": "./module",
+      "secrets": {
+        "token": { "env": "TODO_API_TOKEN" }
+      },
+      "ports": {
+        "api": { "target": "127.0.0.1:4310" }
+      }
+    }
+  },
+  "filesystems": [
+    {
+      "name": "todos",
+      "source": "./source",
+      "mountPoint": "./mount",
+      "rules": [
+        {
+          "match": "Todos/**",
+          "root": "Todos",
+          "opaque": true,
+          "provider": { "module": "todos" }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to npm when run on a release tag, such as to resume a partial release (otherwise build and run publish --dry-run)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  RUNTIME_IMAGE_REPOSITORY: ghcr.io/hoho/scriptfs-runtime
+  # Tag pushes publish; manual runs publish only on a tag with the Publish input.
+  PUBLISH: ${{ github.ref_type == 'tag' && (github.event_name == 'push' || inputs.publish) }}
+
+# Distinct from the CI group, which takes this workflow's name when called from here.
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  binaries:
+    name: binary (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            package: darwin-arm64
+          - runner: macos-15
+            target: x86_64-apple-darwin
+            package: darwin-x64
+          - runner: ubuntu-24.04
+            target: aarch64-unknown-linux-musl
+            package: linux-arm64
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            package: linux-x64
+          - runner: windows-2025
+            target: aarch64-pc-windows-msvc
+            package: win32-arm64
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            package: win32-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        id: msys2
+        with:
+          release: false
+          install: make
+      - name: Expose GNU Make
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: '& "$env:MSYS2_LOCATION\usr\bin\make.exe" ci-expose-make'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install Rust
+        run: make ci-rust
+      - name: Build ${{ matrix.package }}
+        run: make native-package NATIVE_TARGET=${{ matrix.target }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.package }}
+          path: packages/native/${{ matrix.package }}/scriptfs*
+          if-no-files-found: error
+          retention-days: 7
+
+  image:
+    name: runtime image
+    needs: [ci, binaries]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      # Signed build provenance for the pushed image.
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.existing.outputs.digest || steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        run: make ci-pnpm
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: make ci-install
+      - name: Build @scriptfs/module
+        run: make build-js
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: linux-*
+          path: packages/native
+      - name: Image metadata
+        id: meta
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          case "$version" in *-*) channel=next ;; *) channel=latest ;; esac
+          {
+            echo "version=$version"
+            echo "tags<<EOF"
+            echo "$RUNTIME_IMAGE_REPOSITORY:$version"
+            echo "$RUNTIME_IMAGE_REPOSITORY:$channel"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v4
+        if: env.PUBLISH == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v4
+      # A resumed release keeps the image its first run pushed, which npm
+      # packages that were already published may pin.
+      - name: Find a pushed image
+        id: existing
+        if: env.PUBLISH == 'true'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if manifest="$(docker buildx imagetools inspect "$RUNTIME_IMAGE_REPOSITORY:$VERSION" --format '{{json .Manifest}}')"; then
+            digest="$(jq -r .digest <<< "$manifest")"
+            echo "Reusing $RUNTIME_IMAGE_REPOSITORY@$digest"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and smoke-test each platform
+        if: steps.existing.outputs.digest == ''
+        run: |
+          for platform in linux/amd64 linux/arm64; do
+            image="scriptfs-runtime:${platform#linux/}"
+            docker buildx build --platform "$platform" --target runtime-release \
+              --file container/Containerfile --load --tag "$image" .
+            docker run --rm --platform "$platform" "$image" /opt/scriptfs/scriptfs --help > /dev/null
+            docker run --rm --platform "$platform" "$image" \
+              node --input-type=module -e 'await import("@scriptfs/module")'
+            docker run --rm --platform "$platform" "$image" smbd --version
+          done
+      - uses: docker/build-push-action@v7
+        id: push
+        if: env.PUBLISH == 'true' && steps.existing.outputs.digest == ''
+        with:
+          context: .
+          file: container/Containerfile
+          target: runtime-release
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          # Signed separately by actions/attest; avoids unknown/unknown entries.
+          provenance: false
+          labels: |
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          annotations: |
+            index:org.opencontainers.image.source=https://github.com/hoho/scriptfs
+            index:org.opencontainers.image.description=ScriptFS runtime: FUSE, Samba, and the module worker
+            index:org.opencontainers.image.licenses=MIT
+            index:org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+      # Also attests a reused image, in case the run that pushed it failed to.
+      - uses: actions/attest@v4
+        if: env.PUBLISH == 'true'
+        with:
+          subject-name: ${{ env.RUNTIME_IMAGE_REPOSITORY }}
+          subject-digest: ${{ steps.existing.outputs.digest || steps.push.outputs.digest }}
+          push-to-registry: true
+          # Storage records are only available to organization-owned repositories.
+          create-storage-record: false
+
+  publish:
+    needs: [ci, binaries, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: read
+      # npm trusted publishing (OIDC) and provenance attestations.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        run: make ci-pnpm
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Install dependencies
+        run: make ci-install
+      - uses: actions/download-artifact@v8
+        with:
+          path: packages/native
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: make check-version RELEASE_TAG="$RELEASE_TAG"
+      - name: Pin the runtime image
+        if: env.PUBLISH == 'true'
+        env:
+          RELEASE_IMAGE: ${{ env.RUNTIME_IMAGE_REPOSITORY }}@${{ needs.image.outputs.digest }}
+        run: make release-image-reference RELEASE_IMAGE="$RELEASE_IMAGE"
+      - name: Preview packages
+        run: make pack-dry-run
+      - name: Publish dry run
+        if: env.PUBLISH != 'true'
+        run: make publish-dry-run
+      # Packages with a trusted publisher authenticate through OIDC; NPM_TOKEN
+      # is only needed until then, such as for the first release.
+      - name: Publish
+        if: env.PUBLISH == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: make publish PUBLISH_ARGS="--access public --provenance"

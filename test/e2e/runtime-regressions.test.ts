@@ -18,12 +18,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
-import {
-  startScriptFs,
-  ScriptFsStartupError,
-} from "../../src/runtime/podman.js";
-import { loadConfig } from "../../src/config.js";
-import { runCommand } from "../../src/runtime/command-runner.js";
+import { startScriptFs, ScriptFsStartupError } from "../../src/session.js";
+import { loadConfig } from "../../src/native-config.js";
+import { runCommand } from "../helpers/command.js";
 import type { ScriptFsConfig, ScriptFsSession } from "../../src/types.js";
 
 let root: string;
@@ -38,7 +35,8 @@ beforeAll(async () => {
   source = path.join(root, "source");
   mount = path.join(root, "mount");
   const provider = path.join(root, "app", "node_modules", "provider");
-  const dependency = path.join(root, "app", "node_modules", "helper");
+  // Bundled dependencies live inside the module package's own node_modules.
+  const dependency = path.join(provider, "node_modules", "helper");
   await mkdir(provider, { recursive: true });
   await mkdir(dependency, { recursive: true });
   await mkdir(path.join(source, "Generated"), { recursive: true });
@@ -97,7 +95,6 @@ beforeAll(async () => {
     'export const value = "dependency works";',
   );
   await writeFile(path.join(provider, "index.mjs"), providerSource());
-  const module = "provider";
   config = {
     filesystems: [
       {
@@ -105,155 +102,158 @@ beforeAll(async () => {
         source,
         mountPoint: mount,
         rules: [
-          { match: "dependency", provider: { module } },
+          { match: "dependency", provider: { module: "provider" } },
           {
             match: "ContentOnly/**",
-            provider: { module, export: "contentOnly" },
+            provider: { module: "contentOnly" },
           },
           {
             match: "ContentOnly/defaults",
             file: { size: 18, mode: 0o600 },
-            provider: { module, export: "contentOnly" },
+            provider: { module: "contentOnly" },
           },
           {
             match: "ContentOnly/resource",
-            provider: { module, export: "contentOnlyResource" },
+            provider: { module: "contentOnlyResource" },
           },
           ...["literal+name.txt", "literal@name.txt", "literal!name.txt"].map(
             (match) => ({
               match,
-              provider: { module },
+              provider: { module: "provider" },
             }),
           ),
           {
             match: "C++/*.txt",
             opaque: true,
-            provider: { module, export: "inferred" },
+            provider: { module: "inferred" },
           },
           {
             match: "Ownership/**",
             root: "Ownership",
             opaque: true,
-            provider: { module, export: "partialOwnership" },
+            provider: { module: "partialOwnership" },
           },
           {
             match: "ModuleShadow/**",
             root: "ModuleShadow",
-            provider: { module, export: "moduleShadow" },
+            provider: { module: "moduleShadow" },
           },
           {
             match: "Additive/**",
             root: "Additive",
-            provider: { module, export: "additiveTree" },
+            provider: { module: "additiveTree" },
           },
           {
             match: "Additive/provider-created.txt",
-            provider: { module, export: "additiveTree" },
+            provider: { module: "additiveTree" },
           },
           {
             match: "ShortReads*",
             opaque: true,
-            provider: { module, export: "shortReads" },
+            provider: { module: "shortReads" },
           },
           {
             match: "CreateFlags/**",
             root: "CreateFlags",
             opaque: true,
-            provider: { module, export: "createFlags" },
+            provider: { module: "createFlags" },
           },
           {
             match: "Layered/**",
             root: "Layered",
             opaque: true,
-            provider: { module, export: "layeredBase" },
+            provider: { module: "layeredBase" },
           },
           {
             match: "Layered/*.json",
-            provider: { module, export: "layeredExtra" },
+            provider: { module: "layeredExtra" },
           },
           { match: "Layered/hidden.json", hide: true },
           {
             match: "Layered/masked.json",
             opaque: true,
-            provider: { module, export: "additive" },
+            provider: { module: "additive" },
           },
           {
             match: "IdentityFirst",
             opaque: true,
-            provider: { module, export: "localIdentity", options: "FIRST" },
+            provider: { module: "localIdentity", options: "FIRST" },
           },
           {
             match: "IdentitySecond",
             opaque: true,
-            provider: { module, export: "localIdentity", options: "SECOND" },
+            provider: { module: "localIdentity", options: "SECOND" },
           },
           {
             match: "superseded-unavailable",
-            provider: { module, export: "unavailable" },
+            provider: { module: "unavailable" },
           },
-          { match: "superseded-unavailable", provider: { module } },
+          { match: "superseded-unavailable", provider: { module: "provider" } },
           {
             match: "hidden-unavailable",
-            provider: { module, export: "unavailable" },
+            provider: { module: "unavailable" },
           },
           { match: "hidden-unavailable", hide: true },
           {
             match: "metadata-native",
-            provider: { module, export: "metadataFile" },
+            provider: { module: "metadataFile" },
           },
           {
             match: "metadata-mutable",
-            provider: { module, export: "mutableMetadataFile" },
+            provider: { module: "mutableMetadataFile" },
           },
           {
             match: "ClosedDestinationAfter/**/*.txt",
-            provider: { module },
+            provider: { module: "provider" },
           },
           {
             match: "MetadataDirectory/**",
             root: "MetadataDirectory",
-            provider: { module, export: "metadataDirectory" },
+            provider: { module: "metadataDirectory" },
           },
           {
             match: "RetainedWhole/**",
             root: "RetainedWhole",
-            provider: { module, export: "retainedWhole" },
+            provider: { module: "retainedWhole" },
           },
           {
             match: "IdentityWhole/**",
             root: "IdentityWhole",
             opaque: true,
-            provider: { module, export: "identityWhole" },
+            provider: { module: "identityWhole" },
           },
           {
             match: "IdentityPosition/**",
             root: "IdentityPosition",
             opaque: true,
-            provider: { module, export: "identityPosition" },
+            provider: { module: "identityPosition" },
           },
           {
             match: "PathMetadata/**",
             root: "PathMetadata",
-            provider: { module, export: "pathMetadata" },
+            provider: { module: "pathMetadata" },
           },
           {
             match: "TruncateRace",
-            provider: { module, export: "replaceDuringOpen" },
+            provider: { module: "replaceDuringOpen" },
           },
           {
             match: "retained-final",
-            provider: { module, export: "finalRelease" },
+            provider: { module: "finalRelease" },
           },
           {
             match: "ShortSnapshot",
             opaque: true,
-            provider: { module, export: "shortSnapshot" },
+            provider: { module: "shortSnapshot" },
           },
-          { match: "ClosedOwner/generated.txt", provider: { module } },
+          {
+            match: "ClosedOwner/generated.txt",
+            provider: { module: "provider" },
+          },
           {
             match: "RetainedPosition/**",
             root: "RetainedPosition",
-            provider: { module, export: "retainedPosition" },
+            provider: { module: "retainedPosition" },
           },
           { match: "retained-after/*.txt", hide: true },
           { match: "Merged/retained-after/*.txt", hide: true },
@@ -263,106 +263,106 @@ beforeAll(async () => {
             match: "MutableListing/**",
             root: "MutableListing",
             opaque: true,
-            provider: { module, export: "mutableListing" },
+            provider: { module: "mutableListing" },
           },
           {
             match: "CapturedSize",
             opaque: true,
-            provider: { module, export: "capturedSize" },
+            provider: { module: "capturedSize" },
           },
           {
             match: "CapturedAttributes",
             opaque: true,
-            provider: { module, export: "capturedAttributes" },
+            provider: { module: "capturedAttributes" },
           },
           {
             match: "RetainedDirectories/**",
             root: "RetainedDirectories",
             opaque: true,
-            provider: { module, export: "retainedDirectories" },
+            provider: { module: "retainedDirectories" },
           },
           {
             match: "WriteOnlyMixed",
             opaque: true,
-            provider: { module, export: "writeOnlyMixed" },
+            provider: { module: "writeOnlyMixed" },
           },
           {
             match: "WriteOnly",
             opaque: true,
-            provider: { module, export: "writeOnly" },
+            provider: { module: "writeOnly" },
           },
           {
             match: "SequentialSink",
             opaque: true,
             file: { seekable: false },
-            provider: { module, export: "writeOnly" },
+            provider: { module: "writeOnly" },
           },
           {
             match: "UnsupportedSync",
-            provider: { module, export: "unsupportedSync" },
+            provider: { module: "unsupportedSync" },
           },
           {
             match: "WholeFiles/**",
             root: "WholeFiles",
             opaque: true,
-            provider: { module, export: "wholeFiles" },
+            provider: { module: "wholeFiles" },
           },
           {
             match: "Sequential/**",
             root: "Sequential",
             opaque: true,
-            provider: { module, export: "sequential" },
+            provider: { module: "sequential" },
           },
           {
             match: "whole",
-            provider: { module, export: "whole" },
+            provider: { module: "whole" },
             opaque: true,
           },
           {
             match: "mixed",
-            provider: { module, export: "mixed" },
+            provider: { module: "mixed" },
             opaque: true,
           },
           {
             match: "MixedWriter*",
-            provider: { module, export: "mixedWriter" },
+            provider: { module: "mixedWriter" },
             opaque: true,
           },
           {
             match: "no-op-whole",
-            provider: { module, export: "backedWhole" },
+            provider: { module: "backedWhole" },
             opaque: true,
           },
           {
             match: "Inferred/*.txt",
-            provider: { module, export: "inferred" },
+            provider: { module: "inferred" },
             opaque: true,
           },
           {
             match: "MutableLink",
-            provider: { module, export: "mutableLink" },
+            provider: { module: "mutableLink" },
             opaque: true,
           },
           {
             match: "ChangeLink",
-            provider: { module, export: "changeLink" },
+            provider: { module: "changeLink" },
             opaque: true,
           },
           {
             match: "timestamps",
-            provider: { module, export: "timestamps" },
+            provider: { module: "timestamps" },
             opaque: true,
           },
-          { match: "hook-open", provider: { module, export: "openHook" } },
+          { match: "hook-open", provider: { module: "openHook" } },
           {
             match: "hook-open-broken",
-            provider: { module, export: "brokenOpen" },
+            provider: { module: "brokenOpen" },
           },
-          { match: "hook-created", provider: { module, export: "createHook" } },
-          { match: "hook-broken", provider: { module, export: "brokenHook" } },
+          { match: "hook-created", provider: { module: "createHook" } },
+          { match: "hook-broken", provider: { module: "brokenHook" } },
           {
             match: "ReplacedCreate",
-            provider: { module, export: "replacedCreate" },
+            provider: { module: "replacedCreate" },
           },
           {
             match: "Merged/**",
@@ -376,7 +376,7 @@ beforeAll(async () => {
             match: "Masked/**",
             root: "Masked",
             opaque: true,
-            provider: { module, export: "tree" },
+            provider: { module: "tree" },
           },
           {
             match: "SameBacking/**",
@@ -389,79 +389,79 @@ beforeAll(async () => {
           {
             match: "Masked/visible",
             opaque: true,
-            provider: { module, export: "additive" },
+            provider: { module: "additive" },
           },
           {
             match: "masked-source",
             opaque: true,
-            provider: { module, export: "additive" },
+            provider: { module: "additive" },
           },
-          { match: "Diagnostics", provider: { module, export: "diagnostics" } },
+          { match: "Diagnostics", provider: { module: "diagnostics" } },
           {
             match: "SlowOpen",
             opaque: true,
-            provider: { module, export: "slowOpen" },
+            provider: { module: "slowOpen" },
           },
           {
             match: "shutdown-signal",
-            provider: { module, export: "shutdownSignal" },
+            provider: { module: "shutdownSignal" },
           },
           {
             match: "BrokenCreate",
             opaque: true,
-            provider: { module, export: "brokenCreate" },
+            provider: { module: "brokenCreate" },
           },
           {
             match: "Native",
             opaque: true,
-            provider: { module, export: "nativeProvider" },
+            provider: { module: "nativeProvider" },
           },
           {
             match: "Shadow/Nested/**",
             root: "Shadow/Nested",
             opaque: true,
-            provider: { module, export: "tree" },
+            provider: { module: "tree" },
           },
           {
             match: "Shadow/**",
             root: "Shadow",
             opaque: true,
-            provider: { module, export: "emptyTree" },
+            provider: { module: "emptyTree" },
           },
-          { match: "before/*.txt", provider: { module } },
-          { match: "after/*.txt", provider: { module } },
+          { match: "before/*.txt", provider: { module: "provider" } },
+          { match: "after/*.txt", provider: { module: "provider" } },
           {
             match: "Position/**",
             root: "Position",
             opaque: true,
-            provider: { module, export: "positional" },
+            provider: { module: "positional" },
           },
           {
             match: "Nested/Deep/**",
             root: "Nested/Deep",
             opaque: true,
-            provider: { module, export: "tree" },
+            provider: { module: "tree" },
           },
           {
             match: "Existing/Generated/**",
             root: "Existing/Generated",
             opaque: true,
-            provider: { module, export: "tree" },
+            provider: { module: "tree" },
           },
-          { match: "slow", opaque: true, provider: { module, export: "slow" } },
-          { match: "*.generated", provider: { module, export: "additive" } },
+          { match: "slow", opaque: true, provider: { module: "slow" } },
+          { match: "*.generated", provider: { module: "additive" } },
           {
             match: "Generated/**",
             root: "Generated",
             opaque: true,
-            provider: { module, export: "tree" },
+            provider: { module: "tree" },
           },
-          { match: "Hidden", provider: { module } },
+          { match: "Hidden", provider: { module: "provider" } },
           {
             match: "HiddenRoot/**",
             root: "HiddenRoot",
             opaque: true,
-            provider: { module, export: "tree" },
+            provider: { module: "tree" },
           },
           { match: "Hidden", hide: true },
           { match: "HiddenRoot", hide: true },
@@ -477,10 +477,12 @@ beforeAll(async () => {
       },
     ],
     container: {
+      image: process.env.SCRIPTFS_E2E_RUNTIME_IMAGE,
       rebuild: process.env.SCRIPTFS_E2E_REBUILD === "1",
       logLevel: process.env.SCRIPTFS_E2E_DEBUG ? "debug" : "silent",
     },
   };
+  config.modules = await moduleInstances(provider, config);
   const configPath = path.join(root, "app", "scriptfs.json");
   await writeFile(configPath, JSON.stringify(config));
   config = await loadConfig(configPath);
@@ -2983,7 +2985,7 @@ it("removes a created container when its SMB port is already occupied", async ()
     "--all",
     "--quiet",
     "--filter",
-    "ancestor=localhost/scriptfs-runtime:0.0.2",
+    `ancestor=${config.container?.image ?? "localhost/scriptfs-runtime:0.1.0"}`,
   ]);
   const ids = listed.stdout.split(/\s+/).filter(Boolean);
   const containers = ids.length
@@ -3268,7 +3270,9 @@ it("rejects case-colliding shares without mounting them", async () => {
 });
 
 it("exercises the shipped whole-file, positional, mutable-tree and read-only examples", async () => {
-  const example = await loadConfig(path.resolve("examples/config.json"));
+  const example = await loadConfig(
+    path.resolve("examples/showcase/config.json"),
+  );
   example.filesystems = example.filesystems.map((filesystem, index) => ({
     ...filesystem,
     mountPoint: path.join(root, `example-${String(index)}`),
@@ -3370,6 +3374,43 @@ it("exercises the shipped whole-file, positional, mutable-tree and read-only exa
   }
 }, 60_000);
 
+/**
+ * Declares one module instance per export the rules use. The default export is
+ * referenced by package name; named exports use manifests next to it.
+ */
+async function moduleInstances(
+  directory: string,
+  input: ScriptFsConfig,
+): Promise<NonNullable<ScriptFsConfig["modules"]>> {
+  const names = new Set(
+    input.filesystems.flatMap((filesystem) =>
+      (filesystem.rules ?? []).flatMap((rule) =>
+        "provider" in rule && "module" in rule.provider
+          ? [rule.provider.module]
+          : [],
+      ),
+    ),
+  );
+  const modules: NonNullable<ScriptFsConfig["modules"]> = {};
+  for (const name of names) {
+    const file =
+      name === "provider" ? "scriptfs.module.json" : `${name}.module.json`;
+    await writeFile(
+      path.join(directory, file),
+      JSON.stringify({
+        name,
+        entry: "./index.mjs",
+        ...(name === "provider" ? {} : { export: name }),
+      }),
+    );
+    modules[name] = {
+      manifest:
+        name === "provider" ? "provider" : `./node_modules/provider/${file}`,
+    };
+  }
+  return modules;
+}
+
 function providerSource(): string {
   return `
 import { value } from "helper";
@@ -3433,19 +3474,6 @@ export const layeredExtra={
   readdir(){return ["extra.json","hidden.json","masked.json","outside.txt"];},
   readFile(){return "{}";},
 };
-const probe=await open("/scriptfs/sources/0/sync-probe","w+");
-const prototype=Object.getPrototypeOf(probe);
-for(const kind of ["sync","datasync"]) {
-  const original=prototype[kind];
-  prototype[kind]=async function() {
-    const path=await readlink("/proc/self/fd/"+this.fd);
-    if(path.endsWith("/sync-fail")) throw Object.assign(new Error("injected directory sync failure"),{code:"EIO"});
-    await original.call(this);
-    const directory=(await this.stat()).isDirectory();
-    await appendFile("/scriptfs/sources/0/sync-events",JSON.stringify({kind,path,directory})+"\\n");
-  };
-}
-await probe.close();
 const active=new Set();
 let released=0;
 let failLookup=false;

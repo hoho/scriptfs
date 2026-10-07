@@ -4,52 +4,8 @@
   "requires": true,
   "packages": {
     "": {
-      "name": "container",
       "dependencies": {
-        "@cocalc/fuse-native": "2.4.3",
         "picomatch": "4.0.7"
-      }
-    },
-    "node_modules/@cocalc/fuse-native": {
-      "version": "2.4.3",
-      "integrity": "sha512-oINV1aDDPHTZkIIjDFPMAGFypdoi2Vsy2OB+uPljIibcosRW/oTkDsfRUKFPcHgRx7qwVlQ4rcHH2T7mYsxTTw==",
-      "hasInstallScript": true,
-      "license": "MIT",
-      "dependencies": {
-        "nanoresource": "^1.3.0",
-        "napi-macros": "^2.0.0",
-        "node-gyp-build": "^4.8.0"
-      },
-      "bin": {
-        "fuse-native": "bin.js"
-      }
-    },
-    "node_modules/inherits": {
-      "version": "2.0.4",
-      "integrity": "sha1-D6LGT5MpF8NDOg3tVTY6rjdBa3w=",
-      "license": "ISC"
-    },
-    "node_modules/nanoresource": {
-      "version": "1.3.0",
-      "integrity": "sha1-gjlF2WZ6s+gaiyWRq41zRVKHjNA=",
-      "license": "MIT",
-      "dependencies": {
-        "inherits": "^2.0.4"
-      }
-    },
-    "node_modules/napi-macros": {
-      "version": "2.2.2",
-      "integrity": "sha1-gX/vIMPg5AqWP797N9FgC9AgEEQ=",
-      "license": "MIT"
-    },
-    "node_modules/node-gyp-build": {
-      "version": "4.8.4",
-      "integrity": "sha1-inDuhUZK5SMndyqQ1mxgd6kAz8g=",
-      "license": "MIT",
-      "bin": {
-        "node-gyp-build": "bin.js",
-        "node-gyp-build-optional": "optional.js",
-        "node-gyp-build-test": "build-test.js"
       }
     },
     "node_modules/picomatch": {

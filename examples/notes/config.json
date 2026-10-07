@@ -1,0 +1,27 @@
+{
+  "$schema": "../../scriptfs.schema.json",
+  "modules": {
+    "notes": {
+      "manifest": "./module",
+      "paths": {
+        "notes": "./sample-notes"
+      }
+    }
+  },
+  "filesystems": [
+    {
+      "name": "notes",
+      "source": "./source",
+      "mountPoint": "./mount",
+      "readOnly": true,
+      "rules": [
+        {
+          "match": "Notes/**",
+          "root": "Notes",
+          "opaque": true,
+          "provider": { "module": "notes" }
+        }
+      ]
+    }
+  ]
+}

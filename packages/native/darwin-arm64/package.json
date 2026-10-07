@@ -1,0 +1,31 @@
+{
+  "name": "@scriptfs/darwin-arm64",
+  "version": "0.1.0",
+  "description": "ScriptFS native binary for macOS arm64",
+  "author": "Marat Abdullin <ma@xrlt.net>",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "scriptfs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoho/scriptfs.git",
+    "directory": "packages/native/darwin-arm64"
+  },
+  "bugs": {
+    "url": "https://github.com/hoho/scriptfs/issues"
+  },
+  "publishConfig": {
+    "executableFiles": [
+      "./scriptfs"
+    ],
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

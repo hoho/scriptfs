@@ -3,7 +3,7 @@
     "target": "ES2023",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
+    "lib": ["ES2024"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "declaration": true,
@@ -11,7 +11,21 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@scriptfs/module": ["./packages/module/src/index.ts"],
+      "@scriptfs/testing": ["./packages/testing/src/index.ts"],
+      "scriptfs": ["./src/index.ts"]
+    }
   },
-  "include": ["src", "test", "*.ts", "*.js"]
+  "include": [
+    "src",
+    "test",
+    "packages/module/src",
+    "packages/module/test",
+    "packages/testing/src",
+    "packages/testing/test",
+    "*.ts",
+    "*.js"
+  ]
 }

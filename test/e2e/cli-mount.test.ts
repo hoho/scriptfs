@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { runCommand } from "../../src/runtime/command-runner.js";
+import { runCommand } from "../helpers/command.js";
 
 interface ProviderEvent {
   operation: string;
@@ -47,7 +47,7 @@ beforeEach(async () => {
   mount = path.join(root, "mount");
   source = path.join(root, "source");
   eventsPath = path.join(source, "provider-events.jsonl");
-  const providerPath = path.join(root, "provider.mjs");
+  const moduleDirectory = path.join(root, "module");
   await mkdir(path.join(source, "components", "Button"), {
     recursive: true,
   });
@@ -59,10 +59,23 @@ beforeEach(async () => {
     path.join(root, "proxy-directory", "existing.txt"),
     "proxy directory",
   );
-  await writeFile(providerPath, providerSource());
+  await mkdir(moduleDirectory);
+  await writeFile(path.join(moduleDirectory, "index.mjs"), providerSource());
+  await writeFile(
+    path.join(moduleDirectory, "scriptfs.module.json"),
+    JSON.stringify({ name: "e2e-catalog", entry: "./index.mjs" }),
+  );
+  await writeFile(
+    path.join(moduleDirectory, "positional.module.json"),
+    JSON.stringify({
+      name: "e2e-positional",
+      entry: "./index.mjs",
+      export: "positionalProvider",
+    }),
+  );
   await writeFile(
     path.join(root, "config.json"),
-    JSON.stringify(createConfig(providerPath)),
+    JSON.stringify(createConfig()),
   );
 }, 30_000);
 
@@ -452,12 +465,15 @@ async function assertProviderCallbacks(): Promise<void> {
   ]);
 }
 
-function createConfig(providerPath: string): object {
-  const provider = {
-    module: providerPath,
-    options: { events: "/scriptfs/sources/0/provider-events.jsonl" },
-  };
+function createConfig(): object {
+  const options = { events: "/scriptfs/sources/0/provider-events.jsonl" };
+  const provider = { module: "catalog", options };
+  const positional = { module: "positional", options };
   return {
+    modules: {
+      catalog: { manifest: "./module" },
+      positional: { manifest: "./module/positional.module.json" },
+    },
     filesystems: [
       {
         name: "workspace",
@@ -476,12 +492,12 @@ function createConfig(providerPath: string): object {
           },
           {
             match: "GeneratedCatalog/positional.bin",
-            provider: { ...provider, export: "positionalProvider" },
+            provider: positional,
             file: { size: 8, sizeMode: "explicit" },
           },
           {
             match: "GeneratedCatalog/config-unbounded.bin",
-            provider: { ...provider, export: "positionalProvider" },
+            provider: positional,
             file: { sizeMode: "unbounded" },
           },
           {
@@ -698,7 +714,7 @@ async function listRuntimeContainers(): Promise<Set<string>> {
     "ps",
     "--no-trunc",
     "--filter",
-    "ancestor=localhost/scriptfs-runtime:0.0.2",
+    "ancestor=localhost/scriptfs-runtime:0.1.0",
     "--format",
     "{{.ID}}",
   ]);
@@ -747,7 +763,9 @@ async function waitForText(expected: string): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error(`Timed out waiting for CLI output containing "${expected}"`);
+  throw new Error(
+    `Timed out waiting for CLI output containing "${expected}".\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+  );
 }
 
 function waitForExit(

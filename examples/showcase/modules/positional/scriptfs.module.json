@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../../scriptfs-module.schema.json",
+  "name": "showcase-positional",
+  "version": "1.0.0",
+  "description": "Positional reads and writes for fixed-size files, sinks and endless streams.",
+  "entry": "./index.mjs"
+}

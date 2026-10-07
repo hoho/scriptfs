@@ -2,7 +2,7 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { runCommand } from "../src/runtime/command-runner.js";
+import { runCommand } from "./helpers/command.js";
 
 const directories: string[] = [];
 afterEach(async () => {

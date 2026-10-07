@@ -1,0 +1,13 @@
+{
+  "name": "scriptfs-examples",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests of the example modules",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@scriptfs/module": "workspace:*",
+    "@scriptfs/testing": "workspace:*"
+  }
+}

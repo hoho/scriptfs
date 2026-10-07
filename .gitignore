@@ -1,8 +1,12 @@
 coverage/
 dist/
 node_modules/
+target/
 .npmrc
 *.log
-examples/mount/
-examples/source/
-examples/mount-readonly/
+examples/*/mount/
+examples/*/mount-readonly/
+examples/*/.scriptfs/
+packages/native/*/scriptfs
+packages/native/*/scriptfs.exe
+container/runtime-image.json

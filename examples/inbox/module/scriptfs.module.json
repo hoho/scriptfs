@@ -1,0 +1,29 @@
+{
+  "$schema": "../../../scriptfs-module.schema.json",
+  "name": "http-inbox",
+  "version": "1.0.0",
+  "description": "Receives messages over HTTP from the host and shows them as files.",
+  "entry": "./index.mjs",
+  "settings": {
+    "maxMessages": {
+      "type": "integer",
+      "description": "Oldest messages are dropped past this count.",
+      "default": 100
+    }
+  },
+  "secrets": {
+    "token": {
+      "description": "When set, POST /messages requires this bearer token.",
+      "required": false,
+      "env": "INBOX_TOKEN"
+    }
+  },
+  "ports": {
+    "http": {
+      "direction": "inbound",
+      "description": "POST /messages with {\"from\", \"subject\", \"body\"}.",
+      "port": 8787
+    }
+  },
+  "state": true
+}

@@ -11,12 +11,9 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadConfig } from "../../src/config.js";
-import { runCommand } from "../../src/runtime/command-runner.js";
-import {
-  ScriptFsStartupError,
-  startScriptFs,
-} from "../../src/runtime/podman.js";
+import { loadConfig } from "../../src/native-config.js";
+import { runCommand } from "../helpers/command.js";
+import { ScriptFsStartupError, startScriptFs } from "../../src/session.js";
 import type { ScriptFsSession } from "../../src/types.js";
 
 describe.skipIf(process.platform !== "win32")(
@@ -66,7 +63,11 @@ describe.skipIf(process.platform !== "win32")(
       );
       await writeFile(path.join(root, "package.json"), '{"type":"module"}');
       await writeFile(
-        path.join(root, "provider.mjs"),
+        path.join(root, "scriptfs.module.json"),
+        JSON.stringify({ name: "generated", entry: "./index.mjs" }),
+      );
+      await writeFile(
+        path.join(root, "index.mjs"),
         `export default {
   getattr() { return { kind: "file", size: 17 }; },
   readFile() { return "generated overlay"; }
@@ -77,12 +78,13 @@ describe.skipIf(process.platform !== "win32")(
         { match: "**/AGENTS.md", hide: true },
         { match: ".mcp.json", hide: true },
         { match: ".github/skills{,/**}", hide: true },
-        { match: "generated.txt", provider: { module: "./provider.mjs" } },
+        { match: "generated.txt", provider: { module: "generated" } },
       ];
       const configPath = path.join(root, "config.json");
       await writeFile(
         configPath,
         JSON.stringify({
+          modules: { generated: { manifest: "." } },
           filesystems: [
             { name: "windows", source, mountPoint: mount, rules },
             {

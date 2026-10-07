@@ -1,5 +1,10 @@
 packages:
   - .
+  - packages/*
+  - packages/native/*
+  - examples
+
+lockfileIncludeTarballUrl: false
 
 allowBuilds:
   esbuild: true

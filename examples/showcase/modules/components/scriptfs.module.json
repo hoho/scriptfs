@@ -1,0 +1,14 @@
+{
+  "$schema": "../../../../scriptfs-module.schema.json",
+  "name": "showcase-components",
+  "version": "1.0.0",
+  "description": "Generates an AGENTS.md file next to every component.",
+  "entry": "./index.mjs",
+  "settings": {
+    "heading": {
+      "type": "string",
+      "description": "Heading of every generated AGENTS.md file.",
+      "default": "Component instructions"
+    }
+  }
+}

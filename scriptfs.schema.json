@@ -4,6 +4,123 @@
   "type": "object",
   "required": ["filesystems"],
   "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "modules": {
+      "type": "object",
+      "description": "Module instances available to filesystem rules.",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "An instance of a ScriptFS module. Rules refer to it by its name.",
+        "required": ["manifest"],
+        "properties": {
+          "manifest": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to scriptfs.module.json, to a directory containing it, or the name of an installed npm package. Paths are relative to this configuration file; ~ expands to the home directory."
+          },
+          "settings": {
+            "type": "object",
+            "description": "Values for the settings declared by the manifest.",
+            "propertyNames": {
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            }
+          },
+          "secrets": {
+            "type": "object",
+            "description": "Where secrets declared by the manifest are read from when the session starts. Secret values never appear in the configuration.",
+            "propertyNames": {
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            },
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["env"],
+                  "properties": {
+                    "env": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                      "description": "Host environment variable holding the secret."
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["file"],
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Host file holding the secret. A trailing newline is removed."
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "ports": {
+            "type": "object",
+            "description": "Bindings for the ports declared by the manifest.",
+            "propertyNames": {
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            },
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["target"],
+                  "properties": {
+                    "target": {
+                      "type": "string",
+                      "pattern": "^(\\[[^\\]]+\\]|[^:\\s]+):[0-9]{1,5}$",
+                      "description": "Outbound ports: host:port of the service on the host that the module connects to."
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["hostPort"],
+                  "properties": {
+                    "hostPort": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535,
+                      "description": "Inbound ports: port on 127.0.0.1 of the host that forwards to the module."
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "paths": {
+            "type": "object",
+            "description": "Host files or directories for the paths declared by the manifest. Relative paths are resolved against this configuration file; ~ expands to the home directory.",
+            "propertyNames": {
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Host directory for the persistent state of modules that declare \"state\": true. Defaults to .scriptfs/state/<instance> next to this configuration file."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "filesystems": {
       "type": "array",
       "minItems": 1,
@@ -18,9 +135,15 @@
               "pattern": "^([gG][lL][oO][bB][aA][lL]|[hH][oO][mM][eE][sS]|[pP][rR][iI][nN][tT][eE][rR][sS])$"
             }
           },
-          "source": { "type": "string" },
-          "mountPoint": { "type": "string" },
-          "readOnly": { "type": "boolean" },
+          "source": {
+            "type": "string"
+          },
+          "mountPoint": {
+            "type": "string"
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
           "rules": {
             "type": "array",
             "items": {
@@ -29,27 +152,47 @@
                   "type": "object",
                   "required": ["match", "hide"],
                   "properties": {
-                    "match": { "type": "string" },
-                    "hide": { "const": true }
-                  }
+                    "match": {
+                      "type": "string"
+                    },
+                    "hide": {
+                      "const": true
+                    }
+                  },
+                  "additionalProperties": false
                 },
                 {
                   "type": "object",
                   "required": ["match", "provider"],
                   "properties": {
-                    "match": { "type": "string" },
-                    "root": { "type": "string" },
-                    "opaque": { "type": "boolean" },
+                    "match": {
+                      "type": "string"
+                    },
+                    "root": {
+                      "type": "string"
+                    },
+                    "opaque": {
+                      "type": "boolean"
+                    },
                     "file": {
                       "type": "object",
                       "properties": {
-                        "mode": { "type": "integer", "minimum": 0 },
-                        "size": { "type": "integer", "minimum": 0 },
+                        "mode": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
                         "sizeMode": {
                           "enum": ["content", "explicit", "zero", "unbounded"]
                         },
-                        "seekable": { "type": "boolean" }
-                      }
+                        "seekable": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
                     },
                     "provider": {
                       "oneOf": [
@@ -57,44 +200,70 @@
                           "type": "object",
                           "required": ["module"],
                           "properties": {
-                            "type": { "const": "module" },
-                            "module": { "type": "string" },
-                            "export": { "type": "string" },
-                            "options": {}
-                          }
+                            "type": {
+                              "const": "module"
+                            },
+                            "module": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9_-]+$",
+                              "description": "Name of a module instance declared under modules."
+                            },
+                            "options": {
+                              "description": "Any JSON value passed to the module as context.options for this rule."
+                            }
+                          },
+                          "additionalProperties": false
                         },
                         {
                           "type": "object",
                           "required": ["type", "path"],
                           "properties": {
-                            "type": { "const": "file" },
-                            "path": { "type": "string" }
-                          }
+                            "type": {
+                              "const": "file"
+                            },
+                            "path": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
                         },
                         {
                           "type": "object",
                           "required": ["type", "path"],
                           "properties": {
-                            "type": { "const": "directory" },
-                            "path": { "type": "string" }
-                          }
+                            "type": {
+                              "const": "directory"
+                            },
+                            "path": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
                         }
                       ]
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 }
               ]
             }
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "container": {
       "type": "object",
       "properties": {
-        "image": { "type": "string" },
-        "rebuild": { "type": "boolean" },
-        "smbHost": { "type": "string" },
+        "image": {
+          "type": "string"
+        },
+        "rebuild": {
+          "type": "boolean"
+        },
+        "smbHost": {
+          "type": "string"
+        },
         "smbPort": {
           "type": "integer",
           "minimum": 1,
@@ -103,7 +272,9 @@
         "logLevel": {
           "enum": ["silent", "info", "debug"]
         }
-      }
+      },
+      "additionalProperties": false
     }
-  }
+  },
+  "additionalProperties": false
 }

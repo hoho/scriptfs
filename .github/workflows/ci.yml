@@ -2,8 +2,11 @@ name: CI
 
 on:
   push:
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
+  # The release workflow runs the same matrix before publishing.
+  workflow_call:
 
 permissions:
   contents: read
@@ -27,92 +30,55 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        id: msys2
+        with:
+          release: false
+          install: make
+      - name: Expose GNU Make
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: '& "$env:MSYS2_LOCATION\usr\bin\make.exe" ci-expose-make'
       # Install before setup-node so its pnpm cache can locate the store.
       - name: Install pnpm
-        run: |
-          npm install --prefix "$RUNNER_TEMP/scriptfs-pnpm" --no-audit --no-fund pnpm@12.4.0
-          # pnpm's installer changes Windows bin targets to .exe; refresh npm's launchers.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            npm rebuild --prefix "$RUNNER_TEMP/scriptfs-pnpm" --ignore-scripts --no-audit --no-fund pnpm
-          fi
-          echo "$RUNNER_TEMP/scriptfs-pnpm/node_modules/.bin" >> "$GITHUB_PATH"
+        run: make ci-pnpm
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: make ci-install
+
+      - name: Install Rust
+        run: make ci-rust
 
       - name: Portable checks
-        run: pnpm check
+        run: make check
 
       - name: Install Linux integration prerequisites
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y podman cifs-utils
-          sudo modprobe fuse
-          sudo modprobe cifs
-          test -c /dev/fuse
-          sudo podman info
-
-      - name: Build fresh Linux runtime
-        if: runner.os == 'Linux'
-        run: |
-          sudo podman build \
-            --build-arg "NPM_REGISTRY=$(npm config get registry)" \
-            --tag localhost/scriptfs-runtime:0.0.2 \
-            --file container/Containerfile .
+        run: make ci-linux-setup
 
       - name: Linux FUSE and SMB integration
         if: runner.os == 'Linux'
-        run: |
-          sudo env "PATH=$PATH" "CI=true" \
-            "NPM_CONFIG_USERCONFIG=$(npm config get userconfig)" \
-            pnpm test:e2e
+        run: make ci-linux
 
       - name: Install Windows integration prerequisites
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $installer = Join-Path $env:RUNNER_TEMP 'podman.msi'
-          Invoke-WebRequest -Uri 'https://github.com/podman-container-tools/podman/releases/download/v5.8.3/podman-installer-windows-amd64.msi' -OutFile $installer
-          if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne '2c5cffb2f023ae122d52d7f4b30bb677adb933fb7aa7ad708d3d544f8d6fe13a') {
-            throw 'Podman installer checksum did not match.'
-          }
-          $installation = Start-Process msiexec.exe -Wait -PassThru -ArgumentList "/i `"$installer`" /qn /norestart"
-          if ($installation.ExitCode -ne 0) { throw "Podman installation failed: $($installation.ExitCode)" }
-          $env:PATH = $env:PATH + ';' + [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
-          $podmanDirectory = Split-Path (Get-Command podman -ErrorAction Stop).Source
-          Add-Content -Path $env:GITHUB_PATH -Value $podmanDirectory
-          podman machine init
-          if ($LASTEXITCODE -ne 0) { throw 'Podman machine initialization failed.' }
-          podman machine start
-          if ($LASTEXITCODE -ne 0) { throw 'Podman machine startup failed.' }
-          podman machine ssh 'test -c /dev/fuse'
-          if ($LASTEXITCODE -ne 0) { throw 'The Podman machine has no /dev/fuse device.' }
-          node .\dist\cli.js --check
-          if ($LASTEXITCODE -ne 0) { throw 'ScriptFS Podman preflight failed.' }
+        run: make ci-windows-setup
 
       - name: Build fresh Windows runtime
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $registry = npm config get registry
-          if ($LASTEXITCODE -ne 0) { throw 'Could not determine the npm registry.' }
-          podman build --build-arg "NPM_REGISTRY=$registry" --build-arg RUN_NATIVE_SANITIZERS=false --tag localhost/scriptfs-runtime:0.0.2 --file .\container\Containerfile .
-          if ($LASTEXITCODE -ne 0) { throw 'Windows runtime image build failed.' }
+        run: make runtime-check build-image
 
       - name: Windows FUSE and SMB integration
         if: runner.os == 'Windows'
-        run: pnpm test:e2e
+        run: make test-e2e
 
       - name: Stop Windows Podman machine
         if: always() && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (Get-Command podman -ErrorAction SilentlyContinue) {
-            podman machine stop
-            if ($LASTEXITCODE -ne 0) { throw 'Podman machine cleanup failed.' }
-          }
+        run: make stop-podman

@@ -1,0 +1,22 @@
+{
+  "$schema": "../../../scriptfs-module.schema.json",
+  "name": "markdown-html",
+  "version": "1.0.0",
+  "description": "Shows Markdown documents from a host folder as rendered HTML pages.",
+  "entry": "./index.mjs",
+  "dependencies": "install",
+  "settings": {
+    "stylesheet": {
+      "type": "string",
+      "description": "CSS embedded in every page.",
+      "default": "body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 2rem auto; }"
+    }
+  },
+  "paths": {
+    "docs": {
+      "description": "Folder with Markdown documents; mounted read-only.",
+      "default": "~/Documents",
+      "target": "/docs"
+    }
+  }
+}

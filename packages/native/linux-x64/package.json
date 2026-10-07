@@ -1,0 +1,31 @@
+{
+  "name": "@scriptfs/linux-x64",
+  "version": "0.1.0",
+  "description": "ScriptFS native binary for Linux x64",
+  "author": "Marat Abdullin <ma@xrlt.net>",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "scriptfs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoho/scriptfs.git",
+    "directory": "packages/native/linux-x64"
+  },
+  "bugs": {
+    "url": "https://github.com/hoho/scriptfs/issues"
+  },
+  "publishConfig": {
+    "executableFiles": [
+      "./scriptfs"
+    ],
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

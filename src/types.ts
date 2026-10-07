@@ -1,59 +1,4 @@
-export type MaybePromise<T> = T | Promise<T>;
-
-export type NodeKind = "file" | "directory" | "symlink";
 export type FileSizeMode = "content" | "explicit" | "zero" | "unbounded";
-
-export interface NodeMetadata {
-  kind: NodeKind;
-  identity?: string;
-  nlink?: number;
-  size?: number;
-  sizeMode?: FileSizeMode;
-  seekable?: boolean;
-  mode?: number;
-  uid?: number;
-  gid?: number;
-  atime?: Date;
-  mtime?: Date;
-  ctime?: Date;
-  birthtime?: Date;
-  target?: string;
-}
-
-export interface DirectoryEntry {
-  name: string;
-  metadata?: NodeMetadata;
-}
-
-export interface ProviderContext<Options = unknown> {
-  path: string;
-  relativePath: string;
-  ruleRoot: string;
-  sourcePath: string;
-  options: Options;
-  signal: AbortSignal;
-}
-
-export interface WriteContext<
-  Options = unknown,
-> extends ProviderContext<Options> {
-  previousContents: Buffer | undefined;
-}
-
-export interface RenameContext<
-  Options = unknown,
-> extends ProviderContext<Options> {
-  destinationPath: string;
-  destinationRelativePath: string;
-}
-
-export interface FileHandleContext<
-  Options = unknown,
-  Handle = unknown,
-> extends ProviderContext<Options> {
-  flags: number;
-  handle: Handle | undefined;
-}
 
 export interface ProviderFileDefaults {
   mode?: number;
@@ -62,108 +7,86 @@ export interface ProviderFileDefaults {
   seekable?: boolean;
 }
 
-export interface FileAttributeChanges {
-  mode?: number;
-  uid?: number;
-  gid?: number;
-  atime?: Date;
-  mtime?: Date;
+/** Secret value read from the host when the session starts. */
+export type ModuleSecretSource = { env: string } | { file: string };
+
+/** Host target for an outbound port or host port for an inbound port. */
+export type ModulePortBinding = { target: string } | { hostPort: number };
+
+/** A module manifest (`scriptfs.module.json`) after validation. */
+export interface ModuleManifest {
+  name: string;
+  version?: string;
+  description?: string;
+  entry: string;
+  export?: string;
+  dependencies?: "bundled" | "install";
+  settings?: Record<
+    string,
+    {
+      type: "string" | "number" | "integer" | "boolean" | "array" | "object";
+      description?: string;
+      default?: unknown;
+      required?: boolean;
+      enum?: unknown[];
+    }
+  >;
+  secrets?: Record<
+    string,
+    { description?: string; required?: boolean; env?: string }
+  >;
+  ports?: Record<
+    string,
+    | { direction: "outbound"; description?: string; target?: string }
+    | {
+        direction: "inbound";
+        description?: string;
+        port: number;
+        hostPort?: number;
+      }
+  >;
+  paths?: Record<
+    string,
+    {
+      description?: string;
+      type?: "directory" | "file";
+      access?: "read-only" | "read-write";
+      required?: boolean;
+      default?: string;
+      target?: string;
+    }
+  >;
+  state?: boolean;
 }
 
-export interface FilesystemStatistics {
-  bsize: number;
-  frsize: number;
-  blocks: number;
-  bfree: number;
-  bavail: number;
-  files: number;
-  ffree: number;
-  favail: number;
-  fsid: number;
-  flag: number;
-  namemax: number;
+/** A located, validated module. */
+export interface InspectedModule {
+  /** Absolute path of `scriptfs.module.json`. */
+  manifestPath: string;
+  manifest: ModuleManifest;
 }
 
-export interface ScriptFsProvider<Options = unknown, Handle = unknown> {
-  fsetattr?(
-    changes: FileAttributeChanges,
-    context: FileHandleContext<Options, Handle>,
-  ): MaybePromise<void>;
-  getattr?(
-    context: ProviderContext<Options>,
-  ): MaybePromise<NodeMetadata | undefined>;
-  fgetattr?(
-    context: FileHandleContext<Options, Handle>,
-  ): MaybePromise<NodeMetadata | undefined>;
-  readdir?(
-    context: ProviderContext<Options>,
-  ): MaybePromise<readonly (string | DirectoryEntry)[] | undefined>;
-  readlink?(context: ProviderContext<Options>): MaybePromise<string>;
-  readFile?(context: ProviderContext<Options>): MaybePromise<Buffer | string>;
-  open?(context: FileHandleContext<Options>): MaybePromise<Handle>;
-  opendir?(context: FileHandleContext<Options>): MaybePromise<Handle>;
-  fsyncdir?(
-    dataSync: boolean,
-    context: FileHandleContext<Options, Handle>,
-  ): MaybePromise<void>;
-  releasedir?(context: FileHandleContext<Options, Handle>): MaybePromise<void>;
-  create?(
-    metadata: NodeMetadata,
-    context: FileHandleContext<Options>,
-  ): MaybePromise<Handle>;
-  read?(
-    position: number,
-    length: number,
-    context: FileHandleContext<Options, Handle>,
-  ): MaybePromise<Buffer | string>;
-  write?(
-    contents: Buffer,
-    position: number,
-    context: FileHandleContext<Options, Handle>,
-  ): MaybePromise<number | undefined>;
-  writeFile?(
-    contents: Buffer,
-    context: WriteContext<Options>,
-  ): MaybePromise<void>;
-  truncate?(
-    size: number,
-    context: ProviderContext<Options>,
-  ): MaybePromise<void>;
-  ftruncate?(
-    size: number,
-    context: FileHandleContext<Options, Handle>,
-  ): MaybePromise<void>;
-  flush?(context: FileHandleContext<Options, Handle>): MaybePromise<void>;
-  fsync?(
-    dataSync: boolean,
-    context: FileHandleContext<Options, Handle>,
-  ): MaybePromise<void>;
-  release?(context: FileHandleContext<Options, Handle>): MaybePromise<void>;
-  access?(mode: number, context: ProviderContext<Options>): MaybePromise<void>;
-  chmod?(mode: number, context: ProviderContext<Options>): MaybePromise<void>;
-  chown?(
-    uid: number,
-    gid: number,
-    context: ProviderContext<Options>,
-  ): MaybePromise<void>;
-  utimens?(
-    atime: Date,
-    mtime: Date,
-    context: ProviderContext<Options>,
-  ): MaybePromise<void>;
-  mkdir?(
-    metadata: NodeMetadata,
-    context: ProviderContext<Options>,
-  ): MaybePromise<void>;
-  unlink?(context: ProviderContext<Options>): MaybePromise<void>;
-  rmdir?(context: ProviderContext<Options>): MaybePromise<void>;
-  rename?(context: RenameContext<Options>): MaybePromise<void>;
+/** One configured instance of a module. */
+export interface ModuleConfig {
+  /**
+   * Manifest file, directory containing `scriptfs.module.json`, or installed
+   * package name.
+   */
+  manifest: string;
+  settings?: Record<string, unknown>;
+  secrets?: Record<string, ModuleSecretSource>;
+  ports?: Record<string, ModulePortBinding>;
+  /** Host paths bound to the manifest paths. */
+  paths?: Record<string, string>;
+  /** Host directory for persistent module state. */
+  state?: string;
 }
 
 export interface ModuleProviderReference {
   type?: "module";
+  /** Instance name from the `modules` section. */
   module: string;
-  export?: string;
+  /** Passed to every callback as `context.options`. */
   options?: unknown;
 }
 
@@ -212,6 +135,7 @@ export interface ContainerConfig {
 }
 
 export interface ScriptFsConfig {
+  modules?: Record<string, ModuleConfig>;
   filesystems: FilesystemConfig[];
   container?: ContainerConfig;
 }

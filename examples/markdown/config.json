@@ -1,0 +1,27 @@
+{
+  "$schema": "../../scriptfs.schema.json",
+  "modules": {
+    "markdown": {
+      "manifest": "./module",
+      "paths": {
+        "docs": "./docs"
+      }
+    }
+  },
+  "filesystems": [
+    {
+      "name": "markdown",
+      "source": "./source",
+      "mountPoint": "./mount",
+      "readOnly": true,
+      "rules": [
+        {
+          "match": "Pages/**",
+          "root": "Pages",
+          "opaque": true,
+          "provider": { "module": "markdown" }
+        }
+      ]
+    }
+  ]
+}
