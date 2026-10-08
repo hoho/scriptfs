@@ -11,7 +11,7 @@
   "filesystems": [
     {
       "name": "markdown",
-      "source": "./source",
+      "source": "./docs",
       "mountPoint": "./mount",
       "readOnly": true,
       "rules": [

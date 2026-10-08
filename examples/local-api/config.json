@@ -14,7 +14,7 @@
   "filesystems": [
     {
       "name": "todos",
-      "source": "./source",
+      "source": "./module",
       "mountPoint": "./mount",
       "rules": [
         {

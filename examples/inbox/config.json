@@ -14,7 +14,7 @@
   "filesystems": [
     {
       "name": "inbox",
-      "source": "./source",
+      "source": "./module",
       "mountPoint": "./mount",
       "rules": [
         {

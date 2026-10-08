@@ -228,17 +228,20 @@ another backslash.
 
 ### Examples
 
-| Example                           | Demonstrates                                                                                            |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [`showcase`](examples/showcase)   | Every configuration field and filesystem callback.                                                      |
-| [`local-api`](examples/local-api) | An outbound port to a server on the host, a secret, a setting, and writable files backed by a REST API. |
-| [`notes`](examples/notes)         | A read-only host folder mounted into the container and regrouped by `#tag`.                             |
-| [`inbox`](examples/inbox)         | An inbound port that host programs post messages to, and persistent state.                              |
-| [`markdown`](examples/markdown)   | npm dependencies installed into the container from a lockfile, and the plain module callbacks.          |
+| Example                                     | Demonstrates                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [`showcase`](examples/showcase/README.md)   | Every configuration field and filesystem callback.                                                      |
+| [`local-api`](examples/local-api/README.md) | An outbound port to a server on the host, a secret, a setting, and writable files backed by a REST API. |
+| [`notes`](examples/notes/README.md)         | A read-only host folder mounted into the container and regrouped by `#tag`.                             |
+| [`inbox`](examples/inbox/README.md)         | An inbound port that host programs post messages to, and persistent state.                              |
+| [`markdown`](examples/markdown/README.md)   | npm dependencies installed into the container from a lockfile, and the plain module callbacks.          |
 
-After building, run one on macOS or Linux with `make example EXAMPLE=<name>`;
-each example's `source/README.md` explains what to try. Every example has
-end-to-end tests written with [`@scriptfs/testing`](packages/testing/README.md)
+Run one on macOS or Linux with `make example EXAMPLE=<name>`;
+each example's root `README.md` walks through setup, commands to try, and how its
+configuration and module work. The single-module examples use an existing
+content folder as the source, alongside their generated subtree.
+Every example has end-to-end tests written with
+[`@scriptfs/testing`](packages/testing/README.md)
 in its `test` folder (`module/test` for single-module examples);
 `make test-examples` runs them. The `local-api`
 example needs its host server running first:

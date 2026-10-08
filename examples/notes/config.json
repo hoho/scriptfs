@@ -11,7 +11,7 @@
   "filesystems": [
     {
       "name": "notes",
-      "source": "./source",
+      "source": "./sample-notes",
       "mountPoint": "./mount",
       "readOnly": true,
       "rules": [
