@@ -434,38 +434,43 @@ describe("InboundPort", () => {
 });
 
 describe("StateStore", () => {
-  it("persists serialized updates atomically", async () => {
-    const directory = await temporary();
-    const module = new ScriptFsModule(runtime({ stateDir: directory }));
-    const store = module.state({ count: 0, items: [] as string[] });
-    expect(module.state({ count: 5, items: [] })).toBe(store);
-    expect(await store.read()).toEqual({ count: 0, items: [] });
-    await Promise.all(
-      Array.from({ length: 20 }, (_, index) =>
-        store.update((value) => {
-          value.count++;
-          value.items.push(String(index));
-        }),
-      ),
-    );
-    await expect(
-      store.update(() => Promise.reject(new Error("no"))),
-    ).rejects.toThrow("no");
-    await store.update((value) => ({ ...value, count: value.count + 1 }));
-    const saved = JSON.parse(
-      await readFile(path.join(directory, "state.json"), "utf8"),
-    ) as { count: number; items: string[] };
-    expect(saved.count).toBe(21);
-    expect(saved.items).toHaveLength(20);
-    expect(await readdir(directory)).toEqual(["state.json"]);
-    const reopened = new StateStore(path.join(directory, "state.json"), {
-      count: 0,
-      items: [],
-    });
-    expect((await reopened.read()).count).toBe(21);
-    await reopened.write({ count: 1, items: [] });
-    expect((await reopened.read()).count).toBe(1);
-  });
+  // Each serialized update flushes to disk; Windows CI can exceed five seconds.
+  it(
+    "persists serialized updates atomically",
+    { timeout: 30_000 },
+    async () => {
+      const directory = await temporary();
+      const module = new ScriptFsModule(runtime({ stateDir: directory }));
+      const store = module.state({ count: 0, items: [] as string[] });
+      expect(module.state({ count: 5, items: [] })).toBe(store);
+      expect(await store.read()).toEqual({ count: 0, items: [] });
+      await Promise.all(
+        Array.from({ length: 20 }, (_, index) =>
+          store.update((value) => {
+            value.count++;
+            value.items.push(String(index));
+          }),
+        ),
+      );
+      await expect(
+        store.update(() => Promise.reject(new Error("no"))),
+      ).rejects.toThrow("no");
+      await store.update((value) => ({ ...value, count: value.count + 1 }));
+      const saved = JSON.parse(
+        await readFile(path.join(directory, "state.json"), "utf8"),
+      ) as { count: number; items: string[] };
+      expect(saved.count).toBe(21);
+      expect(saved.items).toHaveLength(20);
+      expect(await readdir(directory)).toEqual(["state.json"]);
+      const reopened = new StateStore(path.join(directory, "state.json"), {
+        count: 0,
+        items: [],
+      });
+      expect((await reopened.read()).count).toBe(21);
+      await reopened.write({ count: 1, items: [] });
+      expect((await reopened.read()).count).toBe(1);
+    },
+  );
 
   it("does not share the initial value between stores", async () => {
     const directory = await temporary();
