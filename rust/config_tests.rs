@@ -161,7 +161,7 @@ fn exhaustive_example() {
     );
     assert_eq!(
         public["container"],
-        json!({"image":"localhost/scriptfs-runtime:0.1.0","rebuild":false,"smbHost":"127.0.0.1","smbPort":14445,"logLevel":"info"})
+        json!({"image":"localhost/scriptfs-runtime:0.1.1","rebuild":false,"smbHost":"127.0.0.1","smbPort":14445,"logLevel":"info"})
     );
     assert_eq!(
         config.modules.keys().collect::<Vec<_>>(),

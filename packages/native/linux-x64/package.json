@@ -1,6 +1,6 @@
 {
   "name": "@scriptfs/linux-x64",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ScriptFS native binary for Linux x64",
   "author": "Marat Abdullin <ma@xrlt.net>",
   "license": "MIT",

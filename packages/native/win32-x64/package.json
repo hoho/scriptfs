@@ -1,6 +1,6 @@
 {
   "name": "@scriptfs/win32-x64",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ScriptFS native binary for Windows x64",
   "author": "Marat Abdullin <ma@xrlt.net>",
   "license": "MIT",

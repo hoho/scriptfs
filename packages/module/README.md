@@ -14,9 +14,9 @@ and type checkers can find it:
 ```json
 {
   "type": "module",
-  "peerDependencies": { "@scriptfs/module": ">=0.1.0" },
+  "peerDependencies": { "@scriptfs/module": ">=0.1.1" },
   "peerDependenciesMeta": { "@scriptfs/module": { "optional": true } },
-  "devDependencies": { "@scriptfs/module": "^0.1.0" }
+  "devDependencies": { "@scriptfs/module": "^0.1.1" }
 }
 ```
 

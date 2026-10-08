@@ -1,6 +1,6 @@
 {
   "name": "@scriptfs/testing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "End-to-end testing and development tools for ScriptFS modules",
   "author": "Marat Abdullin <ma@xrlt.net>",
   "license": "MIT",

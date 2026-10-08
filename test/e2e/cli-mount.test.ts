@@ -714,7 +714,7 @@ async function listRuntimeContainers(): Promise<Set<string>> {
     "ps",
     "--no-trunc",
     "--filter",
-    "ancestor=localhost/scriptfs-runtime:0.1.0",
+    "ancestor=localhost/scriptfs-runtime:0.1.1",
     "--format",
     "{{.ID}}",
   ]);

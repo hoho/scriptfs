@@ -1,6 +1,6 @@
 PNPM ?= pnpm
 CARGO ?= cargo
-RUNTIME_IMAGE ?= localhost/scriptfs-runtime:0.1.0
+RUNTIME_IMAGE ?= localhost/scriptfs-runtime:0.1.1
 RUNTIME_TEST_IMAGE ?= $(RUNTIME_IMAGE)-test
 E2E_ARGS ?=
 EXAMPLE ?= showcase

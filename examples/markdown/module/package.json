@@ -12,7 +12,7 @@
     "marked": "18.0.14"
   },
   "peerDependencies": {
-    "@scriptfs/module": ">=0.1.0"
+    "@scriptfs/module": ">=0.1.1"
   },
   "peerDependenciesMeta": {
     "@scriptfs/module": {

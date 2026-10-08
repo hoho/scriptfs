@@ -1,6 +1,6 @@
 {
   "name": "scriptfs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Programmable filesystem overlays mounted through Podman, FUSE, and SMB",
   "author": "Marat Abdullin <ma@xrlt.net>",
   "license": "MIT",

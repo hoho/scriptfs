@@ -8,7 +8,7 @@
     "scriptfs.module.json"
   ],
   "peerDependencies": {
-    "@scriptfs/module": ">=0.1.0"
+    "@scriptfs/module": ">=0.1.1"
   },
   "peerDependenciesMeta": {
     "@scriptfs/module": {

@@ -886,9 +886,9 @@ fn explicit_images_and_rebuilds_ignore_the_release_image() {
 #[test]
 fn release_images_must_be_pinned_by_digest() {
     for image in [
-        "ghcr.io/hoho/scriptfs-runtime:0.1.0",
+        "ghcr.io/hoho/scriptfs-runtime:0.1.1",
         "ghcr.io/hoho/scriptfs-runtime@sha256:0123",
-        "ghcr.io/hoho/scriptfs-runtime:0.1.0@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "ghcr.io/hoho/scriptfs-runtime:0.1.1@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "ghcr.io/@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "ghcr.io/hoho/scriptfs-runtime@sha256:0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef",

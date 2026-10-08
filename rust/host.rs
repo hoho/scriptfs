@@ -25,7 +25,7 @@ use std::{
 };
 
 /// Tag of runtime images built locally from the distribution's Containerfile.
-const IMAGE: &str = "localhost/scriptfs-runtime:0.1.0";
+const IMAGE: &str = "localhost/scriptfs-runtime:0.1.1";
 /// Written into published packages by the release workflow; it pins the
 /// runtime image pushed for that release. Checkouts have none.
 const RELEASE_IMAGE_FILE: &str = "container/runtime-image.json";

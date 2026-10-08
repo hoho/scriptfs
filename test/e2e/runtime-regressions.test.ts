@@ -2999,7 +2999,7 @@ it("removes a created container when its SMB port is already occupied", async ()
     "--all",
     "--quiet",
     "--filter",
-    `ancestor=${config.container?.image ?? "localhost/scriptfs-runtime:0.1.0"}`,
+    `ancestor=${config.container?.image ?? "localhost/scriptfs-runtime:0.1.1"}`,
   ]);
   const ids = listed.stdout.split(/\s+/).filter(Boolean);
   const containers = ids.length

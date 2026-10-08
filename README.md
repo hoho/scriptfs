@@ -768,7 +768,7 @@ supported; bundle those instead.
   "name": "acme-catalog",
   "type": "module",
   "dependencies": { "marked": "18.0.14" },
-  "peerDependencies": { "@scriptfs/module": ">=0.1.0" },
+  "peerDependencies": { "@scriptfs/module": ">=0.1.1" },
   "peerDependenciesMeta": { "@scriptfs/module": { "optional": true } }
 }
 ```
@@ -1455,7 +1455,7 @@ A published package pins its runtime image by digest in
 `container/runtime-image.json`, such as
 `ghcr.io/hoho/scriptfs-runtime@sha256:…`. The first mount pulls that image and
 later mounts reuse it. If the pull fails, such as offline or behind a registry
-mirror, ScriptFS prints a warning and builds `localhost/scriptfs-runtime:0.1.0`
+mirror, ScriptFS prints a warning and builds `localhost/scriptfs-runtime:0.1.1`
 from the packaged `container/Containerfile` instead. Checkouts have no pinned
 image and always build the local one. Setting `container.image` uses that image
 as is (built from the packaged sources if it does not exist), and
@@ -1463,7 +1463,7 @@ as is (built from the packaged sources if it does not exist), and
 Images can be verified against their build provenance:
 
 ```sh
-gh attestation verify oci://ghcr.io/hoho/scriptfs-runtime:0.1.0 --owner hoho
+gh attestation verify oci://ghcr.io/hoho/scriptfs-runtime:0.1.1 --owner hoho
 ```
 
 ## Development
