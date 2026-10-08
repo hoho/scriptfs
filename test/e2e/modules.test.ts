@@ -316,7 +316,10 @@ it("exposes bound paths, settings, file secrets and state to a module", async ()
   expect(await readFile(path.join(probe, "readonly.txt"), "utf8")).toBe(
     "EROFS",
   );
-  await writeFile(path.join(probe, "drop", "out.txt"), "from the container");
+  // The backing path bypasses SMB; flush its buffered write before reading it.
+  await writeFile(path.join(probe, "drop", "out.txt"), "from the container", {
+    flush: true,
+  });
   expect(await readFile(path.join(root, "drop", "out.txt"), "utf8")).toBe(
     "from the container",
   );
