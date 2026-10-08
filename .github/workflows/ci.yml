@@ -34,6 +34,7 @@ jobs:
         if: runner.os == 'Windows'
         id: msys2
         with:
+          msystem: UCRT64
           release: false
           install: make
       - name: Expose GNU Make

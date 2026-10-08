@@ -64,6 +64,7 @@ jobs:
         if: runner.os == 'Windows'
         id: msys2
         with:
+          msystem: UCRT64
           release: false
           install: make
       - name: Expose GNU Make
@@ -218,6 +219,8 @@ jobs:
         run: make ci-install
       - uses: actions/download-artifact@v8
         with:
+          # Docker build records are separate artifacts, not native packages.
+          pattern: "!*.dockerbuild"
           path: packages/native
       - name: Check release version
         env:
